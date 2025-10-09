@@ -1,0 +1,52 @@
+# Ruff Configuration - GoodFood Project
+# Professional Python linting and formatting
+
+target-version = "py310"
+line-length = 100
+
+[lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort (import sorting)
+    "B",      # flake8-bugbear (common bugs)
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade (modern Python)
+    "ARG",    # flake8-unused-arguments
+    "SIM",    # flake8-simplify
+    "TCH",    # flake8-type-checking
+    "PTH",    # flake8-use-pathlib
+    "N",      # pep8-naming
+    "ASYNC",  # flake8-async
+    "S",      # flake8-bandit (security)
+    "RUF",    # Ruff-specific rules
+    "PL",     # Pylint
+    "PERF",   # Performance anti-patterns
+]
+
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "S101",   # use of assert (OK in tests)
+    "B008",   # function call in argument defaults (common in FastAPI/Pydantic)
+    "PLR0913", # too many arguments (sometimes necessary)
+]
+
+# Per-file rules
+[lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "ARG", "S105", "PLR2004"]
+"scripts/**/*.py" = ["S105", "S106"]
+"test_*.py" = ["S101", "ARG"]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[lint.isort]
+known-first-party = ["src", "goodfood"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+
+[lint.pydocstyle]
+convention = "google"

@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv sync:*)",
+      "Bash(uv run:*)",
+      "Bash(uv python install 3.12)",
+      "Bash(uv python pin:*)",
+      "Bash(docker run:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
