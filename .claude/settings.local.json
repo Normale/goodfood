@@ -5,7 +5,12 @@
       "Bash(uv run:*)",
       "Bash(uv python install 3.12)",
       "Bash(uv python pin:*)",
-      "Bash(docker run:*)"
+      "Bash(docker run:*)",
+      "Bash(uv add:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker stop:*)",
+      "Bash(docker rm:*)",
+      "Bash(docker-compose:*)"
     ],
     "deny": [],
     "ask": []
