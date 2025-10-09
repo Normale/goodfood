@@ -62,10 +62,10 @@ function App() {
             {msg.type === 'verification' && <p>Approval: {msg.approval}%</p>}
             {msg.type === 'complete' && (
               <div>
-                <p><strong>Complete!</strong></p>
-                <p>Protein: {msg.result.estimates.protein}g</p>
-                <p>Carbs: {msg.result.estimates.carbohydrates}g</p>
-                <p>Fats: {msg.result.estimates.total_fats}g</p>
+                <p><strong>Complete! All nutrients:</strong></p>
+                <pre style={{fontSize: '12px', maxHeight: '400px', overflow: 'auto'}}>
+                  {JSON.stringify(msg.result.estimates, null, 2)}
+                </pre>
               </div>
             )}
             {msg.type === 'error' && <p style={{color: 'red'}}>Error: {msg.error}</p>}
