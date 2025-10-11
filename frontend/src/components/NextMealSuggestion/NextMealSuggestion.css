@@ -1,0 +1,108 @@
+.suggestion-container {
+  animation: fadeInUp 0.7s ease-out;
+}
+
+.suggestion-container .glow-effect {
+  background: linear-gradient(to right, rgba(245, 158, 11, 0.2), rgba(249, 115, 22, 0.2), rgba(244, 63, 94, 0.2));
+}
+
+.suggestion-card {
+  backdrop-filter: blur(16px);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+  position: relative;
+}
+
+.suggestion-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.suggestion-header .header-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(to bottom right, #f59e0b, #ea580c);
+  box-shadow: 0 10px 25px -5px rgba(245, 158, 11, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.suggestion-content {
+  position: relative;
+  padding-left: 1rem;
+  border-left: 4px solid transparent;
+  border-image: linear-gradient(to bottom, #f59e0b, #ea580c) 1;
+  margin-left: 0.5rem;
+}
+
+.suggestion-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.suggestion-title svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #fbbf24;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+.suggestion-title h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: white;
+}
+
+.suggestion-reasoning {
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.6;
+}
+
+.suggestion-footer {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.suggestion-footer svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.pulse-indicator {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #fbbf24;
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}

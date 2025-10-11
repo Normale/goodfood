@@ -1,0 +1,242 @@
+.analysis-container {
+  animation: fadeInUp 0.8s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.analysis-card {
+  backdrop-filter: blur(16px);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+  position: relative;
+}
+
+.analysis-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.analysis-header .header-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(to bottom right, #06b6d4, #2563eb);
+  box-shadow: 0 10px 25px -5px rgba(6, 182, 212, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: white;
+}
+
+.header-content h2 {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: white;
+  margin-bottom: 0.125rem;
+}
+
+.header-content p {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.analysis-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.section-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section-title svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.section-title.deficient {
+  color: #f87171;
+}
+
+.section-title.adequate {
+  color: #34d399;
+}
+
+.section-title.excessive {
+  color: #fbbf24;
+}
+
+.nutrient-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.nutrient-item {
+  position: relative;
+}
+
+.nutrient-item.deficient .glow-effect,
+.nutrient-item.adequate .glow-effect,
+.nutrient-item.excessive .glow-effect {
+  position: absolute;
+  inset: 0;
+  border-radius: 0.75rem;
+  filter: blur(16px);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.nutrient-item.deficient .glow-effect {
+  background: linear-gradient(to right, #ef4444, #f43f5e);
+}
+
+.nutrient-item.adequate .glow-effect {
+  background: linear-gradient(to right, #10b981, #059669);
+}
+
+.nutrient-item.excessive .glow-effect {
+  background: linear-gradient(to right, #f59e0b, #ea580c);
+}
+
+.nutrient-item:hover .glow-effect {
+  opacity: 0.5;
+}
+
+.nutrient-card {
+  position: relative;
+  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.nutrient-card.compact {
+  padding: 0.75rem;
+}
+
+.nutrient-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.nutrient-content.compact {
+  align-items: center;
+}
+
+.nutrient-icon {
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.nutrient-icon.compact {
+  width: 2rem;
+  height: 2rem;
+}
+
+.nutrient-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.nutrient-icon.compact svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.nutrient-icon.deficient {
+  background: linear-gradient(to bottom right, #ef4444, #f43f5e);
+  box-shadow: 0 10px 25px -5px rgba(239, 68, 68, 0.3);
+}
+
+.nutrient-icon.adequate {
+  background: linear-gradient(to bottom right, #10b981, #059669);
+}
+
+.nutrient-icon.excessive {
+  background: linear-gradient(to bottom right, #f59e0b, #ea580c);
+}
+
+.nutrient-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.nutrient-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.nutrient-name {
+  font-weight: 500;
+  color: white;
+}
+
+.nutrient-name.compact {
+  font-size: 0.875rem;
+}
+
+.nutrient-badge {
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: white;
+}
+
+.nutrient-badge.deficient {
+  background: linear-gradient(to right, #ef4444, #f43f5e);
+}
+
+.nutrient-badge.adequate {
+  background: linear-gradient(to right, #10b981, #059669);
+}
+
+.nutrient-badge.excessive {
+  background: linear-gradient(to right, #f59e0b, #ea580c);
+}
+
+.nutrient-note {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.nutrient-note.compact {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+}
