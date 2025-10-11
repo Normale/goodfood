@@ -11,8 +11,8 @@ const Header = ({ totalCalories, totalProtein, onThemeToggle }) => {
               <AppleIcon />
             </div>
             <div className="brand-text">
-              <h1>NutriTrack AI</h1>
-              <p>Smart nutrition tracking</p>
+              <h1>GoodFood</h1>
+              <p>Advanced nutrition tracking</p>
             </div>
           </div>
 

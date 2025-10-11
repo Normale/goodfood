@@ -3,6 +3,7 @@ import Header from './components/Header/Header';
 import MealInput from './components/MealInput/MealInput';
 import MealsList from './components/MealsList/MealsList';
 import DailyGoals from './components/DailyGoals/DailyGoals';
+import TopNutrientGaps from './components/TopNutrientGaps/TopNutrientGaps';
 import NextMealSuggestion from './components/NextMealSuggestion/NextMealSuggestion';
 import NutrientAnalysis from './components/NutrientAnalysis/NutrientAnalysis';
 import './App.css';
@@ -84,11 +85,21 @@ const initialAnalysis = {
   ]
 };
 
+const initialNutrientData = {
+  vitamin_d: 8,      // 8 out of 20 mcg = 40%
+  fiber: 15,         // 15 out of 30 g = 50%
+  iron: 12,          // 12 out of 18 mg = 67%
+  calcium: 500,      // 500 out of 1000 mg = 50%
+  vitamin_b12: 1.5,  // 1.5 out of 2.4 mcg = 62.5%
+  omega_3: 0.8,      // 0.8 out of 1.6 g = 50%
+};
+
 function App() {
   const [meals, setMeals] = useState(initialMeals);
   const [goals, setGoals] = useState(initialGoals);
   const [suggestion, setSuggestion] = useState(initialSuggestion);
   const [analysis, setAnalysis] = useState(initialAnalysis);
+  const [nutrientData, setNutrientData] = useState(initialNutrientData);
 
   // Calculate total calories and protein
   const totalCalories = meals.reduce((sum, meal) => sum + meal.calories, 0);
@@ -167,8 +178,9 @@ function App() {
           </div>
 
           <div className="right-column">
-            <DailyGoals goals={goals} />
-            <NextMealSuggestion suggestion={suggestion} />
+            {/* <DailyGoals goals={goals} /> */}
+            <TopNutrientGaps nutrientData={nutrientData} />
+            <NextMealSuggestion />
             <NutrientAnalysis analysis={analysis} />
           </div>
         </div>

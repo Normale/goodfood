@@ -1,39 +1,72 @@
-import { LightbulbIcon, SparklesIcon, BulbIcon } from '../ui/Icons';
-import './NextMealSuggestion.css';
+import { motion } from "framer-motion";
+import { ChefHatIcon } from "../ui/Icons";
+import "./NextMealSuggestion.css";
 
-const NextMealSuggestion = ({ suggestion }) => {
+const NextMealSuggestion = () => {
+  const meals = [
+    { name: "Salmon & Spinach Bowl", nutrients: "High in Omega-3, Iron, Vitamin K" },
+    { name: "Almond Berry Smoothie", nutrients: "Rich in Vitamin E, Polyphenols" },
+    { name: "Quinoa Buddha Bowl", nutrients: "Complete amino acids, Magnesium" },
+    { name: "Egg & Avocado Toast", nutrients: "Choline, B12, Healthy fats" },
+  ];
+
   return (
-    <div className="suggestion-container">
-      <div className="glow-wrapper">
-        <div className="glow-effect"></div>
-        <div className="suggestion-card">
-          <div className="suggestion-header">
-            <div className="header-icon">
-              <LightbulbIcon />
-            </div>
-            <div className="header-content">
-              <h2>Next Meal Suggestion</h2>
-              <p>AI-powered recommendation</p>
-            </div>
-          </div>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.3 }}
+      className="suggestion-container group"
+    >
+      <div className="glow-effect"></div>
 
-          <div className="suggestion-content">
-            <div className="suggestion-title">
-              <SparklesIcon />
-              <h3>{suggestion.meal}</h3>
-            </div>
-            <p className="suggestion-reasoning">{suggestion.reasoning}</p>
+      <div className="suggestion-card">
+        {/* Header */}
+        <div className="suggestion-header">
+          <div className="header-icon">
+            <ChefHatIcon />
           </div>
-
-          <div className="suggestion-footer">
-            <BulbIcon />
-            <span>Based on your current nutritional intake and goals</span>
+          <div className="header-content">
+            <h2>Recommended Meals</h2>
+            <p>Based on your nutrient gaps</p>
           </div>
-
-          <div className="pulse-indicator"></div>
         </div>
+
+        {/* List of Recommended Meals */}
+        <div className="recommendation-list">
+          {meals.map((meal, index) => (
+            <motion.div
+              key={meal.name}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: index * 0.1 }}
+              className="recommendation-item"
+            >
+              <div className="recommendation-dot"></div>
+              <div className="recommendation-content">
+                <h4>{meal.name}</h4>
+                <p>{meal.nutrients}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Subtle Pulse Indicator */}
+        <motion.div
+          className="pulse-indicator"
+          animate={{
+            scale: [1, 1.2, 1],
+            opacity: [0.5, 1, 0.5]
+          }}
+          transition={{
+            duration: 2,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        >
+          <div className="pulse-dot"></div>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

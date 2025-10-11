@@ -1,21 +1,51 @@
 .suggestion-container {
+  position: relative;
   animation: fadeInUp 0.7s ease-out;
 }
 
-.suggestion-container .glow-effect {
-  background: linear-gradient(to right, rgba(245, 158, 11, 0.2), rgba(249, 115, 22, 0.2), rgba(244, 63, 94, 0.2));
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
+/* Soft glowing background when hovered */
+.suggestion-container .glow-effect {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right,
+      rgba(6, 182, 212, 0.2),
+      rgba(16, 185, 129, 0.2),
+      rgba(59, 130, 246, 0.2));
+  border-radius: 1rem;
+  filter: blur(40px);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.suggestion-container.group:hover .glow-effect {
+  opacity: 1;
+}
+
+/* Main Card */
 .suggestion-card {
+  position: relative;
   backdrop-filter: blur(16px);
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 1rem;
   padding: 1.5rem;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
-  position: relative;
+  color: white;
 }
 
+/* Header */
 .suggestion-header {
   display: flex;
   align-items: center;
@@ -23,86 +53,93 @@
   margin-bottom: 1.5rem;
 }
 
-.suggestion-header .header-icon {
+.header-icon {
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 0.75rem;
-  background: linear-gradient(to bottom right, #f59e0b, #ea580c);
-  box-shadow: 0 10px 25px -5px rgba(245, 158, 11, 0.3);
+  background: linear-gradient(to bottom right, #10b981, #06b6d4);
+  box-shadow: 0 10px 25px -5px rgba(6, 182, 212, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.suggestion-content {
-  position: relative;
-  padding-left: 1rem;
-  border-left: 4px solid transparent;
-  border-image: linear-gradient(to bottom, #f59e0b, #ea580c) 1;
-  margin-left: 0.5rem;
-}
-
-.suggestion-title {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.suggestion-title svg {
+.header-icon svg {
   width: 1.25rem;
   height: 1.25rem;
-  color: #fbbf24;
-  flex-shrink: 0;
-  margin-top: 0.125rem;
-}
-
-.suggestion-title h3 {
-  font-size: 1.125rem;
-  font-weight: 600;
   color: white;
 }
 
-.suggestion-reasoning {
-  color: rgba(255, 255, 255, 0.7);
-  line-height: 1.6;
+.header-content h2 {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: white;
+  margin-bottom: 0.125rem;
 }
 
-.suggestion-footer {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.header-content p {
   font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.6);
 }
 
-.suggestion-footer svg {
-  width: 1rem;
-  height: 1rem;
+/* Recommendation List */
+.recommendation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
+.recommendation-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  transition: background 0.3s ease, transform 0.2s ease;
+  cursor: pointer;
+}
+
+.recommendation-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+/* Gradient dots */
+.recommendation-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-top: 0.4rem;
+  border-radius: 9999px;
+  background: linear-gradient(to bottom right, #06b6d4, #10b981);
+  box-shadow: 0 0 6px rgba(6, 182, 212, 0.7);
+}
+
+/* Text */
+.recommendation-content h4 {
+  font-size: 1rem;
+  font-weight: 500;
+  color: white;
+  margin-bottom: 0.25rem;
+}
+
+.recommendation-content p {
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+/* Pulse indicator (top right) */
 .pulse-indicator {
   position: absolute;
   top: 1rem;
   right: 1rem;
+}
+
+.pulse-dot {
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 50%;
-  background: #fbbf24;
-  box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
-  animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 0.5;
-  }
-  50% {
-    transform: scale(1.2);
-    opacity: 1;
-  }
+  background: #22d3ee;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.6);
 }

@@ -1,0 +1,152 @@
+.nutrient-gaps-card {
+  border-radius: 1rem;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  background: rgba(245, 158, 11, 0.05);
+  backdrop-filter: blur(16px);
+  padding: 1.5rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+}
+
+.nutrient-gaps-card.optimal {
+  border-color: rgba(16, 185, 129, 0.2);
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.gaps-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.gaps-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  background: rgba(245, 158, 11, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gaps-icon.optimal {
+  background: rgba(16, 185, 129, 0.2);
+}
+
+.gaps-icon svg {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: #fbbf24;
+}
+
+.gaps-icon.optimal svg {
+  color: #34d399;
+}
+
+.gaps-header-content h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: white;
+  margin-bottom: 0.125rem;
+}
+
+.gaps-header-content p {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.optimal-text {
+  color: #34d399 !important;
+}
+
+.gaps-message {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.gaps-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 640px) {
+  .gaps-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.gap-item {
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+}
+
+.gap-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.gap-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.gap-item-header h4 {
+  font-weight: 500;
+  color: white;
+  font-size: 0.875rem;
+}
+
+.gap-percentage {
+  font-size: 0.75rem;
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+.gap-progress-container {
+  width: 100%;
+  height: 0.375rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.gap-progress-bar {
+  height: 100%;
+  background: linear-gradient(to right, rgba(245, 158, 11, 0.5), #f59e0b);
+  border-radius: 9999px;
+}
+
+.gap-item-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+}
+
+.gap-current {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.gap-deficit {
+  color: #fbbf24;
+  font-weight: 500;
+}
+
+.gaps-tip {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.gaps-tip p {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+}
