@@ -1,4 +1,4 @@
-import { AppleIcon, MoonIcon, UtensilsIcon, DatabaseIcon } from '../ui/Icons';
+import { AppleIcon, MoonIcon, UtensilsIcon, DatabaseIcon, UserIcon } from '../ui/Icons';
 import './Header.css';
 
 const Header = ({ totalCalories, totalProtein, onThemeToggle, activeTab, onTabChange }) => {
@@ -33,6 +33,14 @@ const Header = ({ totalCalories, totalProtein, onThemeToggle, activeTab, onTabCh
               >
                 <DatabaseIcon />
                 <span>Database</span>
+              </button>
+              <button
+                className={`nav-button ${activeTab === 'personalization' ? 'active' : ''}`}
+                onClick={() => onTabChange('personalization')}
+                aria-label="Personalization"
+              >
+                <UserIcon />
+                <span>Profile</span>
               </button>
             </div>
 
