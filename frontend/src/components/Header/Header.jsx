@@ -1,7 +1,7 @@
-import { AppleIcon, MoonIcon } from '../ui/Icons';
+import { AppleIcon, MoonIcon, UtensilsIcon, DatabaseIcon } from '../ui/Icons';
 import './Header.css';
 
-const Header = ({ totalCalories, totalProtein, onThemeToggle }) => {
+const Header = ({ totalCalories, totalProtein, onThemeToggle, activeTab, onTabChange }) => {
   return (
     <header className="header">
       <div className="header-container">
@@ -17,6 +17,25 @@ const Header = ({ totalCalories, totalProtein, onThemeToggle }) => {
           </div>
 
           <div className="header-actions">
+            <div className="nav-buttons">
+              <button
+                className={`nav-button ${activeTab === 'tracker' ? 'active' : ''}`}
+                onClick={() => onTabChange('tracker')}
+                aria-label="Nutrition Tracker"
+              >
+                <UtensilsIcon />
+                <span>Tracker</span>
+              </button>
+              <button
+                className={`nav-button ${activeTab === 'database' ? 'active' : ''}`}
+                onClick={() => onTabChange('database')}
+                aria-label="Food Database"
+              >
+                <DatabaseIcon />
+                <span>Database</span>
+              </button>
+            </div>
+
             <div className="stats-container">
               <div className="stat">
                 <p className="stat-label">Today's Calories</p>
