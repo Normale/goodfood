@@ -1,14 +1,15 @@
-"""Simple FastAPI server with WebSocket for UI component updates."""
+"""Main FastAPI server with WebSocket for nutrition estimation."""
 
 import asyncio
-import json
 from datetime import datetime
 from typing import Dict, List
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI()
+from backend.src.workflows.nutrition_workflow import NutritionEstimationWorkflow
+
+app = FastAPI(title="GoodFood Nutrition API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -38,29 +39,6 @@ async def broadcast_update(component: str, data: dict):
             await connection.send_json(message)
         except Exception as e:
             print(f"Error sending to client: {e}")
-
-
-def add_today(text: str) -> dict:
-    """
-    Fake function that always returns the same meal data.
-
-    Args:
-        text: User's meal description (ignored for now)
-
-    Returns:
-        Static meal data with nutrients
-    """
-    from random import random
-
-    return {
-        "id": int(datetime.now().timestamp() * 1000),
-        "time": datetime.now().strftime("%I:%M %p"),
-        "description": text,
-        "calories": 400 + int(random() * 200),
-        "protein": random() * 30,
-        "carbs": 42,
-        "fat": 15,
-    }
 
 
 def get_initial_meals() -> List[dict]:
@@ -99,12 +77,12 @@ def get_initial_meals() -> List[dict]:
 def get_nutrient_gaps() -> dict:
     """Get nutrient gaps data."""
     return {
-        "vitamin_d": 8,  # 8 out of 20 mcg = 40%
-        "fiber": 15,  # 15 out of 30 g = 50%
-        "iron": 12,  # 12 out of 18 mg = 67%
-        "calcium": 500,  # 500 out of 1000 mg = 50%
-        "vitamin_b12": 1.5,  # 1.5 out of 2.4 mcg = 62.5%
-        "omega_3": 0.8,  # 0.8 out of 1.6 g = 50%
+        "vitamin_d": 8,
+        "fiber": 15,
+        "iron": 12,
+        "calcium": 500,
+        "vitamin_b12": 1.5,
+        "omega_3": 0.8,
     }
 
 
@@ -135,36 +113,41 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         # Send initial data to newly connected client
         await websocket.send_json({"component": "todaysMeals", "data": get_initial_meals()})
-
         await websocket.send_json({"component": "nutrientGaps", "data": get_nutrient_gaps()})
-
         await websocket.send_json({"component": "recommendedMeal", "data": get_recommended_meal()})
 
         # Listen for messages from client
         while True:
             message = await websocket.receive_json()
 
-            # Handle meal input
+            # Handle meal input with nutrition estimation
             if message.get("action") == "add_meal":
                 meal_text = message.get("text", "")
-                print(f"Adding meal: {meal_text}")
+                print(f"Estimating nutrition for: {meal_text}")
 
-                # Create new meal using fake function
-                new_meal = add_today(meal_text)
+                # Use nutrition workflow to estimate
+                workflow = NutritionEstimationWorkflow()
+                result = await workflow.estimate_meal(meal_text, websocket)
+
+                # Create new meal with estimated nutrition
+                new_meal = {
+                    "id": int(datetime.now().timestamp() * 1000),
+                    "time": datetime.now().strftime("%I:%M %p"),
+                    "description": meal_text,
+                    "calories": result.get("calories", 0),
+                    "protein": result.get("protein", 0),
+                    "carbs": result.get("carbs", 0),
+                    "fat": result.get("fat", 0),
+                    "detailed_nutrients": result.get("estimates", {}),
+                }
 
                 # Get current meals and add new one
                 current_meals = get_initial_meals()
                 current_meals.append(new_meal)
 
-                # Broadcast updated meals list to all clients
+                # Broadcast updated meals list
                 await broadcast_update("todaysMeals", current_meals)
-
-                # Also update nutrient gaps (fake updated values)
-                updated_gaps = get_nutrient_gaps()
-                updated_gaps["fiber"] = 18  # Simulate improvement
-                await broadcast_update("nutrientGaps", updated_gaps)
-
-                # Update recommended meal
+                await broadcast_update("nutrientGaps", get_nutrient_gaps())
                 await broadcast_update("recommendedMeal", get_recommended_meal())
 
                 print(f"Broadcasted updates to {len(active_connections)} clients")

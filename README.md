@@ -1,102 +1,205 @@
-# 🍽️ GoodFood - Nutrition Estimation from Descriptions
+# 🍽️ GoodFood - AI-Powered Nutrition Tracking
 
-Simple AI-powered nutrition tracking. Just describe what you ate, agents estimate and verify the nutrients.
+Comprehensive nutrition tracking with AI-powered estimation. Just describe what you ate, and agents estimate 70+ nutrients with iterative refinement.
 
-## 🏗️ How It Works
+## Features
 
-1. **Input Agent** estimates nutrients from meal description
-2. **Critic Agent** verifies estimates (with OpenFoodFacts MCP if available)
-3. Agents negotiate until consensus (80%+ approval)
-4. Save to PostgreSQL with vector embeddings
+- **Natural Language Input**: Describe meals in plain English
+- **Comprehensive Tracking**: 70+ nutrients (macros, vitamins, minerals, amino acids, phytonutrients)
+- **Iterative Refinement**: Estimator and verifier agents collaborate for accuracy
+- **Real-Time WebSocket**: Live progress updates during estimation
+- **React Frontend**: Modern UI with nutrition visualization
+- **Database Persistence**: PostgreSQL with vector embeddings for similarity search
 
-**Input:** Natural language description
-**Output:** 50+ nutrient values stored in database
+## Quick Start
 
-## 🚀 Setup
+See [QUICKSTART.md](./QUICKSTART.md) for a 5-minute getting started guide.
+
+### Backend
 
 ```bash
-# 1. Install
+# Install dependencies
 uv sync
 
-# 2. Database (Docker)
-docker run -d --name goodfood-postgres \
-  -e POSTGRES_USER=goodfood_user \
-  -e POSTGRES_PASSWORD=goodfood_pass \
-  -e POSTGRES_DB=goodfood \
-  -p 5432:5432 \
-  ankane/pgvector
-
-# 3. Configure
+# Set up environment
 cp .env.example .env
-# Edit .env - add ANTHROPIC_API_KEY and DATABASE_URL
+# Edit .env and add ANTHROPIC_API_KEY
 
-# 4. Migrate
-alembic upgrade head
-
-# 5. Run
-python main.py
+# Run server
+python backend/main.py
 ```
 
-## 📖 Usage
+Server runs on `http://localhost:8000`
 
-### Estimate from Description
+### Frontend
 
-```python
-from src.workflows.estimation_workflow import EstimationWorkflow
-
-workflow = EstimationWorkflow()
-
-result = await workflow.run(
-    description="Grilled chicken 200g with rice and broccoli"
-)
-
-# Result contains:
-# - estimates: dict of all nutrients
-# - iterations: number of rounds
-# - approval: final approval %
+```bash
+cd frontend
+npm install
+npm run dev
 ```
 
-### Save to Database
+Frontend runs on `http://localhost:5173`
 
-```python
-from src.database.gateway import DatabaseGateway
+### Docker (Full Stack)
 
-db = DatabaseGateway()
-
-record = await db.save_nutrition(
-    name="Chicken with rice",
-    description="Grilled chicken 200g with brown rice 150g...",
-    meal_type=MealType.DINNER,
-    nutrients=result["estimates"],
-)
+```bash
+docker-compose up
 ```
 
-### Query History
+Starts PostgreSQL, backend, and frontend.
 
-```python
-# Get recent meals
-records = await db.get_history(limit=10)
+## Architecture
 
-# Search similar (TODO: implement vector search)
-similar = await db.search_similar_by_description(embedding)
+```
+goodfood/
+├── backend/                    # Python backend
+│   ├── main.py                # Entry point
+│   ├── src/
+│   │   ├── api/              # FastAPI + WebSocket
+│   │   ├── agents/           # AI agents (estimator, verifier)
+│   │   ├── workflows/        # Orchestration logic
+│   │   ├── config/           # Settings
+│   │   ├── database/         # PostgreSQL models
+│   │   ├── models/           # Data models
+│   │   └── integrations/     # External APIs
+│   └── README.md
+├── frontend/                  # React frontend
+│   └── src/
+│       ├── components/       # UI components
+│       └── App.jsx
+├── alembic/                   # Database migrations
+└── docs/
+    ├── ARCHITECTURE.md       # Detailed architecture
+    └── QUICKSTART.md         # Getting started
 ```
 
-## 📊 Database Schema
+For detailed architecture, see [ARCHITECTURE.md](./ARCHITECTURE.md)
+
+## How It Works
+
+### 1. User Input
+User describes a meal: "Grilled salmon with quinoa and broccoli"
+
+### 2. AI Estimation
+**NutritionEstimatorAgent** analyzes the description:
+- Parses ingredients and quantities
+- Estimates 70+ nutrients
+- Provides confidence level and assumptions
+
+### 3. Verification
+**NutritionVerifierAgent** validates estimates:
+- Checks each nutrient for accuracy
+- Identifies values that are significantly off (>25% deviation)
+- Provides detailed feedback
+
+### 4. Iterative Refinement
+Agents collaborate (up to 5 iterations):
+```
+Iteration 1:
+  → Estimator: protein=38g, carbs=45g, vitamin_c=85mg...
+  → Verifier: "Approval 75% - vitamin C seems high for this meal"
+
+Iteration 2:
+  → Estimator: (adjusts) vitamin_c=60mg...
+  → Verifier: "Approval 85% - looks good"
+
+✅ Consensus reached (85% approval)!
+```
+
+### 5. Real-Time Updates
+Progress streamed to frontend via WebSocket:
+- Current iteration
+- Estimation phase
+- Verification results
+- Final consensus
+
+### 6. Storage & Display
+Meal saved with complete nutritional profile and displayed in UI.
+
+## Nutrients Tracked
+
+**70+ nutrients** across all categories:
+
+### Macronutrients (9)
+Protein, Carbohydrates, Total Fats, Fiber (soluble/insoluble), Essential fatty acids, Water
+
+### Vitamins (13)
+All B vitamins (B1-B12), Vitamins A, C, D, E, K
+
+### Minerals (14)
+Calcium, Iron, Magnesium, Zinc, Selenium, Potassium, Sodium, and more
+
+### Essential Amino Acids (9)
+Leucine, Lysine, Valine, Isoleucine, Threonine, and more
+
+### Beneficial Compounds (6)
+Choline, Taurine, CoQ10, Alpha-lipoic acid, Beta-glucan, Resistant starch
+
+### Phytonutrients (9)
+Beta-carotene, Lycopene, Polyphenols, Quercetin, and more
+
+## API
+
+### WebSocket Endpoint
+`ws://localhost:8000/ws`
+
+**Client → Server:**
+```json
+{
+  "action": "add_meal",
+  "text": "Grilled salmon with quinoa and broccoli"
+}
+```
+
+**Server → Client (Progress):**
+```json
+{"type": "workflow_start", "description": "...", "max_iterations": 5}
+{"type": "iteration", "iteration": 1, "max": 5}
+{"type": "status", "status": "estimating", "message": "Analyzing meal..."}
+{"type": "estimates", "macros": {...}, "confidence": "high"}
+{"type": "verification", "approval": 85, "issues_count": 2}
+{"type": "consensus", "message": "Consensus reached!"}
+```
+
+### HTTP Endpoints
+- `GET /health` - Health check
+
+## Configuration
+
+`.env` file:
+```env
+# Required
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+
+# Optional (with defaults)
+DATABASE_URL=postgresql://goodfood_user:goodfood_pass@localhost:5432/goodfood
+OPENFOODFACTS_MCP_URL=http://localhost:3000
+MAX_ITERATIONS=5
+APPROVAL_THRESHOLD=80
+CONFIDENCE_THRESHOLD=0.7
+ESTIMATOR_MODEL=claude-3-5-haiku-latest
+CRITIC_MODEL=claude-3-5-haiku-latest
+LOG_LEVEL=INFO
+```
+
+## Database
+
+PostgreSQL with pgvector extension for similarity search:
 
 ```sql
 CREATE TABLE nutrition_history (
-    -- Identifiers
-    id UUID,
+    id UUID PRIMARY KEY,
     timestamp TIMESTAMPTZ,
     name VARCHAR(255),
-    description VARCHAR(1000),
+    description TEXT,
     meal_type VARCHAR(50),
 
-    -- Embeddings for similarity search
+    -- Vector embeddings
     description_embedding vector(1536),
     nutrient_profile_embedding vector(1536),
 
-    -- All nutrients as columns (50+)
+    -- 70+ nutrient columns
     protein FLOAT,
     carbohydrates FLOAT,
     total_fats FLOAT,
@@ -106,81 +209,81 @@ CREATE TABLE nutrition_history (
 );
 ```
 
-## 🔧 Workflow Example
+## Technologies
 
-```
-Description: "Grilled chicken 200g with rice and broccoli"
+**Backend:**
+- FastAPI - Web framework
+- Anthropic Claude - AI for nutrition estimation
+- SQLAlchemy - ORM
+- Alembic - Migrations
+- WebSockets - Real-time communication
 
-Iteration 1:
-  → Estimator: protein=45g, carbs=50g, vitamin_c=80mg...
-  → Critic: "Approval 75% - vitamin C seems high"
+**Frontend:**
+- React - UI framework
+- Vite - Build tool
+- Framer Motion - Animations
 
-Iteration 2:
-  → Estimator: (adjusts) vitamin_c=60mg...
-  → Critic: "Approval 85% - looks good"
+**Infrastructure:**
+- Docker - Containerization
+- PostgreSQL + pgvector - Database
+- uvicorn - ASGI server
 
-✅ Consensus reached!
-💾 Saved to database
-```
+## Development
 
-## 🗂️ Structure
-
-```
-goodfood/
-├── src/
-│   ├── agents/
-│   │   ├── input_agent.py        # Estimates from description
-│   │   └── input_critic.py       # Verifies estimates
-│   ├── workflows/
-│   │   └── estimation_workflow.py  # Negotiation loop
-│   ├── database/
-│   │   └── gateway.py            # CRUD + vector search
-│   ├── models/
-│   │   ├── nutrition.py          # 50+ nutrient fields
-│   │   └── database.py           # SQLAlchemy schema
-│   └── config/
-│       ├── settings.py
-│       └── nutrients.py
-├── main.py                       # Example usage
-└── alembic/versions/001_*.py     # DB schema
-```
-
-## ⚙️ Configuration
-
-`.env`:
+### Running Tests
 ```bash
-ANTHROPIC_API_KEY=sk-ant-...
-DATABASE_URL=postgresql://user:pass@localhost:5432/goodfood
-MAX_ITERATIONS=5
-APPROVAL_THRESHOLD=80
+# Backend (TODO)
+pytest backend/tests/
+
+# Frontend (TODO)
+cd frontend && npm test
 ```
 
-## 📝 Nutrients Tracked
+### Database Migrations
+```bash
+# Create migration
+alembic revision --autogenerate -m "description"
 
-50+ nutrients stored as individual columns:
+# Apply migrations
+alembic upgrade head
 
-- **Macros:** protein, carbohydrates, total_fats, fiber, water
-- **Vitamins:** A, B1-B12, C, D, E, K
-- **Minerals:** calcium, iron, zinc, magnesium, selenium
-- **Amino Acids:** leucine, lysine, valine, isoleucine
-- **Beneficial:** choline, taurine, coq10, beta_glucan
-- **Phytonutrients:** beta_carotene, lycopene, quercetin
+# Rollback
+alembic downgrade -1
+```
 
-## 🔮 TODO
+### Project Structure
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed structure and design decisions.
 
-- [ ] Implement vector similarity search in `gateway.py`
-- [ ] Generate description embeddings (OpenAI API)
-- [ ] Generate nutrient profile embeddings (normalize values)
-- [ ] Add OpenFoodFacts MCP integration for real data
+## Documentation
 
-## ✅ What Works
+- [QUICKSTART.md](./QUICKSTART.md) - 5-minute getting started guide
+- [ARCHITECTURE.md](./ARCHITECTURE.md) - Detailed architecture and data flow
+- [backend/README.md](./backend/README.md) - Backend API documentation
+- [MIGRATION_SUMMARY.md](./MIGRATION_SUMMARY.md) - Repository reorganization notes
 
-- ✅ Natural language input (just describe your meal)
-- ✅ AI estimation with Claude
-- ✅ Iterative verification workflow
-- ✅ Database with all nutrient columns
-- ✅ Vector embedding support (ready for similarity search)
+## Future Enhancements
+
+- [ ] User authentication and profiles
+- [ ] Historical nutrition trends
+- [ ] Personalized meal recommendations
+- [ ] Integration with USDA/OpenFoodFacts databases
+- [ ] Meal planning engine
+- [ ] Recipe database
+- [ ] Export functionality (PDF, CSV)
+- [ ] Mobile app (React Native)
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests (when available)
+5. Submit a pull request
+
+## License
+
+[Your License Here]
 
 ---
 
-**Simple. No complex JSON. Just describe and track.**
+**Simple. Comprehensive. AI-Powered.**

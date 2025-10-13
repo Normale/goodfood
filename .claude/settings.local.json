@@ -16,7 +16,9 @@
       "Bash(npm run build)",
       "Bash(npm install framer-motion)",
       "Bash(npm run dev)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(cp:*)",
+      "Bash(.venv/Scripts/python.exe:*)"
     ],
     "deny": [],
     "ask": []

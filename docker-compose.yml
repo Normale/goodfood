@@ -15,13 +15,13 @@ services:
   backend:
     build: .
     ports:
-      - "8001:8001"
+      - "8000:8000"
     depends_on:
       - postgres
     environment:
       DATABASE_URL: postgresql://goodfood_user:goodfood_pass@postgres:5432/goodfood
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-    command: uv run uvicorn server:app --host 0.0.0.0 --port 8001
+    command: uv run python backend/main.py
 
   frontend:
     build: ./frontend
