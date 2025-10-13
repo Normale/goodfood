@@ -2,14 +2,7 @@ import { motion } from "framer-motion";
 import { ChefHatIcon } from "../ui/Icons";
 import "./NextMealSuggestion.css";
 
-const NextMealSuggestion = () => {
-  const meals = [
-    { name: "Salmon & Spinach Bowl", nutrients: "High in Omega-3, Iron, Vitamin K" },
-    { name: "Almond Berry Smoothie", nutrients: "Rich in Vitamin E, Polyphenols" },
-    { name: "Quinoa Buddha Bowl", nutrients: "Complete amino acids, Magnesium" },
-    { name: "Egg & Avocado Toast", nutrients: "Choline, B12, Healthy fats" },
-  ];
-
+const NextMealSuggestion = ({ suggestion }) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -26,29 +19,35 @@ const NextMealSuggestion = () => {
             <ChefHatIcon />
           </div>
           <div className="header-content">
-            <h2>Recommended Meals</h2>
+            <h2>Recommended Next Meal</h2>
             <p>Based on your nutrient gaps</p>
           </div>
         </div>
 
-        {/* List of Recommended Meals */}
-        <div className="recommendation-list">
-          {meals.map((meal, index) => (
+        {/* Recommended Meal */}
+        {suggestion && (
+          <div className="recommendation-list">
             <motion.div
-              key={meal.name}
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.1 }}
+              transition={{ delay: 0.1 }}
               className="recommendation-item"
             >
               <div className="recommendation-dot"></div>
               <div className="recommendation-content">
-                <h4>{meal.name}</h4>
-                <p>{meal.nutrients}</p>
+                <h4>{suggestion.meal}</h4>
+                <p>{suggestion.reasoning}</p>
+                {suggestion.nutrients && (
+                  <div style={{ marginTop: '8px', fontSize: '0.85em', color: 'rgba(255,255,255,0.6)' }}>
+                    <span>Calories: {suggestion.nutrients.calories} | </span>
+                    <span>Protein: {suggestion.nutrients.protein}g | </span>
+                    <span>Omega-3: {suggestion.nutrients.omega_3}g</span>
+                  </div>
+                )}
               </div>
             </motion.div>
-          ))}
-        </div>
+          </div>
+        )}
 
         {/* Subtle Pulse Indicator */}
         <motion.div
