@@ -11,7 +11,7 @@ NOTE: This is a stub implementation. The actual MCP integration requires:
 
 from typing import Dict, List, Optional
 
-from src.config.settings import settings
+from config.settings import settings
 
 
 class OpenFoodFactsMCP:

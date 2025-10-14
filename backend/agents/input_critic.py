@@ -1,7 +1,7 @@
 """Input Critic - Verifies nutrient estimates."""
 
-from src.integrations.claude_client import ClaudeClient
-from src.integrations.openfoodfacts_mcp import OpenFoodFactsMCP
+from integrations.claude_client import ClaudeClient
+from integrations.openfoodfacts_mcp import OpenFoodFactsMCP
 
 
 class InputCritic:

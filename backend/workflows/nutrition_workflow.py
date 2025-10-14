@@ -2,8 +2,8 @@
 
 from typing import Dict, Optional
 
-from backend.src.agents.nutrition_estimator import NutritionEstimatorAgent
-from backend.src.agents.nutrition_verifier import NutritionVerifierAgent
+from agents.nutrition_estimator import NutritionEstimatorAgent
+from agents.nutrition_verifier import NutritionVerifierAgent
 
 
 class NutritionEstimationWorkflow:

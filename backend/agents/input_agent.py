@@ -1,7 +1,7 @@
 """Input Agent - Estimates nutrients from meal description."""
 
-from src.integrations.claude_client import ClaudeClient
-from src.config.nutrients import NUTRIENTS
+from integrations.claude_client import ClaudeClient
+from config.nutrients import NUTRIENTS
 
 
 class InputAgent:

@@ -2,9 +2,9 @@
 
 from typing import Optional
 
-from src.agents.input_agent import InputAgent
-from src.agents.input_critic import InputCritic
-from src.config.settings import settings
+from agents.input_agent import InputAgent
+from agents.input_critic import InputCritic
+from config.settings import settings
 
 
 class EstimationWorkflow:
