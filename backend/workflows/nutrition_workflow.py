@@ -27,7 +27,7 @@ class NutritionEstimationWorkflow:
         self,
         description: str,
         websocket=None,
-        max_iterations: int = 5,
+        max_iterations: int = 3,
     ) -> Dict:
         """
         Estimate nutrition for a meal with iterative refinement.
@@ -46,67 +46,81 @@ class NutritionEstimationWorkflow:
 
         # Notify start
         if websocket:
-            await websocket.send_json({
-                "type": "workflow_start",
-                "description": description,
-                "max_iterations": max_iterations,
-            })
+            await websocket.send_json(
+                {
+                    "type": "workflow_start",
+                    "description": description,
+                    "max_iterations": max_iterations,
+                }
+            )
 
         for iteration in range(1, max_iterations + 1):
             # Send iteration update
             if websocket:
-                await websocket.send_json({
-                    "type": "iteration",
-                    "iteration": iteration,
-                    "max": max_iterations,
-                })
+                await websocket.send_json(
+                    {
+                        "type": "iteration",
+                        "iteration": iteration,
+                        "max": max_iterations,
+                    }
+                )
 
             # Step 1: Estimator generates/refines estimates
             if websocket:
-                await websocket.send_json({
-                    "type": "status",
-                    "status": "estimating",
-                    "message": f"Analyzing meal (iteration {iteration})...",
-                })
+                await websocket.send_json(
+                    {
+                        "type": "status",
+                        "status": "estimating",
+                        "message": f"Analyzing meal (iteration {iteration})...",
+                    }
+                )
 
             estimates = await self.estimator.estimate(description, feedback)
 
             if "error" in estimates:
                 if websocket:
-                    await websocket.send_json({
-                        "type": "error",
-                        "error": estimates["error"],
-                    })
+                    await websocket.send_json(
+                        {
+                            "type": "error",
+                            "error": estimates["error"],
+                        }
+                    )
                 return estimates
 
             # Extract macros for display
             macros = self.estimator.extract_macros(estimates.get("estimates", {}))
 
             if websocket:
-                await websocket.send_json({
-                    "type": "estimates",
-                    "macros": macros,
-                    "confidence": estimates.get("confidence_level"),
-                    "reasoning": estimates.get("reasoning"),
-                    "full_count": len(estimates.get("estimates", {})),
-                })
+                await websocket.send_json(
+                    {
+                        "type": "estimates",
+                        "macros": macros,
+                        "confidence": estimates.get("confidence_level"),
+                        "reasoning": estimates.get("reasoning"),
+                        "full_count": len(estimates.get("estimates", {})),
+                    }
+                )
 
             # Step 2: Verifier checks estimates
             if websocket:
-                await websocket.send_json({
-                    "type": "status",
-                    "status": "verifying",
-                    "message": "Verifying accuracy...",
-                })
+                await websocket.send_json(
+                    {
+                        "type": "status",
+                        "status": "verifying",
+                        "message": "Verifying accuracy...",
+                    }
+                )
 
             verification = await self.verifier.verify(description, estimates)
 
             if "error" in verification:
                 if websocket:
-                    await websocket.send_json({
-                        "type": "error",
-                        "error": verification["error"],
-                    })
+                    await websocket.send_json(
+                        {
+                            "type": "error",
+                            "error": verification["error"],
+                        }
+                    )
                 # Return estimates even if verification failed
                 return {
                     **macros,
@@ -121,21 +135,25 @@ class NutritionEstimationWorkflow:
             issues = verification.get("issues_found", [])
 
             if websocket:
-                await websocket.send_json({
-                    "type": "verification",
-                    "approval": approval,
-                    "issues_count": len(issues),
-                    "issues": issues[:3],  # Send top 3 issues
-                })
+                await websocket.send_json(
+                    {
+                        "type": "verification",
+                        "approval": approval,
+                        "issues_count": len(issues),
+                        "issues": issues[:3],  # Send top 3 issues
+                    }
+                )
 
             # Step 3: Check if consensus reached
             if verification.get("approved") or approval >= self.approval_threshold:
                 if websocket:
-                    await websocket.send_json({
-                        "type": "consensus",
-                        "message": f"Consensus reached! ({approval}% approval)",
-                        "iterations": iteration,
-                    })
+                    await websocket.send_json(
+                        {
+                            "type": "consensus",
+                            "message": f"Consensus reached! ({approval}% approval)",
+                            "iterations": iteration,
+                        }
+                    )
 
                 return {
                     **macros,
@@ -150,18 +168,22 @@ class NutritionEstimationWorkflow:
             feedback = verification.get("feedback")
 
             if websocket:
-                await websocket.send_json({
-                    "type": "refining",
-                    "message": f"Refining estimates based on feedback... ({approval}% approval)",
-                })
+                await websocket.send_json(
+                    {
+                        "type": "refining",
+                        "message": f"Refining estimates based on feedback... ({approval}% approval)",
+                    }
+                )
 
         # Max iterations reached - return best estimates
         if websocket:
-            await websocket.send_json({
-                "type": "max_iterations",
-                "message": f"Analysis complete ({approval}% approval)",
-                "iterations": max_iterations,
-            })
+            await websocket.send_json(
+                {
+                    "type": "max_iterations",
+                    "message": f"Analysis complete ({approval}% approval)",
+                    "iterations": max_iterations,
+                }
+            )
 
         return {
             **macros,
@@ -173,9 +195,7 @@ class NutritionEstimationWorkflow:
             "warning": "Did not reach full consensus",
         }
 
-    async def estimate_batch(
-        self, descriptions: list[str], max_iterations: int = 3
-    ) -> list[Dict]:
+    async def estimate_batch(self, descriptions: list[str], max_iterations: int = 3) -> list[Dict]:
         """
         Estimate nutrition for multiple meals.
 
