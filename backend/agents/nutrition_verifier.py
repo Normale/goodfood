@@ -7,6 +7,8 @@ from typing import Any, Dict, List
 
 import anthropic
 
+from config.settings import settings
+
 
 class NutritionVerifierAgent:
     """Agent that verifies and challenges nutritional estimates for accuracy."""
@@ -66,7 +68,7 @@ Respond ONLY with valid JSON in this format:
 
         try:
             message = self.client.messages.create(
-                model="claude-sonnet-4-5-20250929",
+                model=settings.critic_model,
                 max_tokens=4000,
                 messages=[{"role": "user", "content": prompt}],
             )

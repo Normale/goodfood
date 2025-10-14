@@ -15,18 +15,21 @@ class EstimationWorkflow:
         self.critic = InputCritic()
 
     async def run_streaming(
-        self, description: str, websocket, max_iterations: int = 5
+        self, description: str, websocket, max_iterations: int = None
     ) -> dict:
         """Run estimation workflow with WebSocket streaming.
 
         Args:
             description: Meal description
             websocket: WebSocket connection to stream progress
-            max_iterations: Max negotiation rounds
+            max_iterations: Max negotiation rounds (uses settings if None)
 
         Returns:
             Final estimates dict
         """
+        if max_iterations is None:
+            max_iterations = settings.max_iterations
+
         feedback = None
         estimates = None
 
@@ -72,16 +75,19 @@ class EstimationWorkflow:
             "approval": approval,
         }
 
-    async def run(self, description: str, max_iterations: int = 5) -> dict:
+    async def run(self, description: str, max_iterations: int = None) -> dict:
         """Run estimation workflow.
 
         Args:
             description: Meal description
-            max_iterations: Max negotiation rounds
+            max_iterations: Max negotiation rounds (uses settings if None)
 
         Returns:
             Final estimates dict
         """
+        if max_iterations is None:
+            max_iterations = settings.max_iterations
+
         print(f"\nEstimating nutrition for: {description}\n")
 
         feedback = None
