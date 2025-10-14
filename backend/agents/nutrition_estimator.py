@@ -1,6 +1,8 @@
 """Nutrition estimation agent with comprehensive nutrient tracking."""
 
 import json
+from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import anthropic
@@ -87,10 +89,10 @@ class NutritionEstimatorAgent:
     def __init__(self):
         self.client = anthropic.Anthropic()
         self.role = "Nutritional Estimator"
+        self.log_dir = Path("logs")
+        self.log_dir.mkdir(exist_ok=True)
 
-    async def estimate(
-        self, description: str, feedback: Optional[str] = None
-    ) -> Dict[str, Any]:
+    async def estimate(self, description: str, feedback: Optional[str] = None) -> Dict[str, Any]:
         """
         Estimate nutritional values for a meal description.
 
@@ -125,7 +127,7 @@ Respond ONLY with valid JSON in this format:
         "Carbohydrates (g)": <number>,
         "Protein (g)": <number>,
         "Total Fats (g)": <number>,
-        ... (all {len(COMPREHENSIVE_NUTRIENTS.split('- ')) - 6} nutrients)
+        ... (all {len(COMPREHENSIVE_NUTRIENTS.split("- ")) - 6} nutrients)
     }},
     "reasoning": "Brief explanation of your estimation approach and any changes made",
     "confidence_level": "high/medium/low",
@@ -134,12 +136,15 @@ Respond ONLY with valid JSON in this format:
 
         try:
             message = self.client.messages.create(
-                model="claude-3-5-haiku-latest",
+                model="claude-sonnet-4-5-20250929",
                 max_tokens=4000,
                 messages=[{"role": "user", "content": prompt}],
             )
 
             response_text = message.content[0].text
+
+            # Log the conversation
+            self._log_message(description, prompt, response_text, feedback)
 
             # Extract JSON from response
             start_idx = response_text.find("{")
@@ -150,13 +155,44 @@ Respond ONLY with valid JSON in this format:
             return result
 
         except Exception as e:
-            return {
+            error_result = {
                 "error": f"Failed to estimate nutrition: {str(e)}",
                 "estimates": {},
                 "reasoning": "Error occurred during estimation",
                 "confidence_level": "low",
                 "assumptions": [],
             }
+            # Log the error
+            self._log_message(description, prompt, f"ERROR: {str(e)}", feedback)
+            return error_result
+
+    def _log_message(
+        self, description: str, prompt: str, response: str, feedback: Optional[str]
+    ) -> None:
+        """Log agent conversation to file."""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        log_file = self.log_dir / f"estimator_{timestamp}.txt"
+
+        with open(log_file, "w", encoding="utf-8") as f:
+            f.write("=" * 80 + "\n")
+            f.write(f"NUTRITION ESTIMATOR LOG\n")
+            f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+            f.write("=" * 80 + "\n\n")
+
+            f.write(f"MEAL DESCRIPTION:\n{description}\n\n")
+
+            if feedback:
+                f.write(f"FEEDBACK FROM VERIFIER:\n{feedback}\n\n")
+
+            f.write("=" * 80 + "\n")
+            f.write("PROMPT SENT:\n")
+            f.write("=" * 80 + "\n")
+            f.write(f"{prompt}\n\n")
+
+            f.write("=" * 80 + "\n")
+            f.write("RESPONSE RECEIVED:\n")
+            f.write("=" * 80 + "\n")
+            f.write(f"{response}\n")
 
     def extract_macros(self, estimates: Dict[str, float]) -> Dict[str, float]:
         """

@@ -219,3 +219,5 @@ __marimo__/
 OpenFoodFacts-MCP.txt
 /frontend/node_modules
 backend/nul
+/logs
+/backend/logs

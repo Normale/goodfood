@@ -1,6 +1,8 @@
 """Nutrition verification agent that challenges and validates estimates."""
 
 import json
+from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List
 
 import anthropic
@@ -12,10 +14,10 @@ class NutritionVerifierAgent:
     def __init__(self):
         self.client = anthropic.Anthropic()
         self.role = "Nutritional Verifier"
+        self.log_dir = Path("logs")
+        self.log_dir.mkdir(exist_ok=True)
 
-    async def verify(
-        self, description: str, estimates: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def verify(self, description: str, estimates: Dict[str, Any]) -> Dict[str, Any]:
         """
         Verify nutritional estimates and provide detailed feedback.
 
@@ -31,7 +33,7 @@ class NutritionVerifierAgent:
 Meal description: {description}
 
 Estimates to verify:
-{json.dumps(estimates.get('estimates', {}), indent=2)}
+{json.dumps(estimates.get("estimates", {}), indent=2)}
 
 Your task:
 1. Check each nutrient estimate for accuracy based on the meal description
@@ -64,12 +66,15 @@ Respond ONLY with valid JSON in this format:
 
         try:
             message = self.client.messages.create(
-                model="claude-3-5-haiku-latest",
+                model="claude-sonnet-4-5-20250929",
                 max_tokens=4000,
                 messages=[{"role": "user", "content": prompt}],
             )
 
             response_text = message.content[0].text
+
+            # Log the conversation
+            self._log_message(description, estimates, prompt, response_text)
 
             # Extract JSON from response
             start_idx = response_text.find("{")
@@ -80,8 +85,8 @@ Respond ONLY with valid JSON in this format:
             # Format feedback for next iteration
             if result.get("issues_found"):
                 feedback_text = f"""
-Approval: {result.get('approval_percentage', 0)}%
-Overall feedback: {result.get('overall_feedback', '')}
+Approval: {result.get("approval_percentage", 0)}%
+Overall feedback: {result.get("overall_feedback", "")}
 
 Specific issues to address:
 """
@@ -96,7 +101,7 @@ Specific issues to address:
             return result
 
         except Exception as e:
-            return {
+            error_result = {
                 "error": f"Failed to verify nutrition: {str(e)}",
                 "approved": False,
                 "issues_found": [],
@@ -104,3 +109,35 @@ Specific issues to address:
                 "approval_percentage": 0,
                 "feedback": "Verification failed due to error",
             }
+            # Log the error
+            self._log_message(description, estimates, prompt, f"ERROR: {str(e)}")
+            return error_result
+
+    def _log_message(
+        self, description: str, estimates: Dict[str, Any], prompt: str, response: str
+    ) -> None:
+        """Log agent conversation to file."""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        log_file = self.log_dir / f"verifier_{timestamp}.txt"
+
+        with open(log_file, "w", encoding="utf-8") as f:
+            f.write("=" * 80 + "\n")
+            f.write(f"NUTRITION VERIFIER LOG\n")
+            f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+            f.write("=" * 80 + "\n\n")
+
+            f.write(f"MEAL DESCRIPTION:\n{description}\n\n")
+
+            f.write("ESTIMATES TO VERIFY:\n")
+            f.write(json.dumps(estimates.get("estimates", {}), indent=2))
+            f.write("\n\n")
+
+            f.write("=" * 80 + "\n")
+            f.write("PROMPT SENT:\n")
+            f.write("=" * 80 + "\n")
+            f.write(f"{prompt}\n\n")
+
+            f.write("=" * 80 + "\n")
+            f.write("RESPONSE RECEIVED:\n")
+            f.write("=" * 80 + "\n")
+            f.write(f"{response}\n")
