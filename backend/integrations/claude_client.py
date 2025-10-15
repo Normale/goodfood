@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 
 from anthropic import Anthropic
 
-from src.config.settings import settings
+from config.settings import settings
 
 
 class ClaudeClient:

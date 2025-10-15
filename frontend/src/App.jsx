@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import Header from './components/Header/Header';
 import MealInput from './components/MealInput/MealInput';
@@ -104,6 +104,10 @@ function App() {
   const [nutrientData, setNutrientData] = useState(initialNutrientData);
   const [activeTab, setActiveTab] = useState('tracker');
 
+  // WebSocket connection
+  const ws = useRef(null);
+  const [isConnected, setIsConnected] = useState(false);
+
   // Personalization state
   const [userProfile, setUserProfile] = useState({
     age: '',
@@ -177,40 +181,92 @@ function App() {
     alphaLipoicAcid: { value: 300, average: 300 }
   });
 
+  // WebSocket setup - connect on mount
+  useEffect(() => {
+    const connectWebSocket = () => {
+      ws.current = new WebSocket('ws://localhost:8000/ws');
+
+      ws.current.onopen = () => {
+        console.log('WebSocket connected');
+        setIsConnected(true);
+      };
+
+      ws.current.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        console.log('Received update:', message);
+
+        // Route updates to appropriate components
+        switch (message.component) {
+          case 'todaysMeals':
+            setMeals(message.data);
+            // Recalculate goals based on new meals
+            const totalCals = message.data.reduce((sum, meal) => sum + meal.calories, 0);
+            const totalProt = message.data.reduce((sum, meal) => sum + meal.protein, 0);
+            const totalCarbs = message.data.reduce((sum, meal) => sum + meal.carbs, 0);
+            const totalFat = message.data.reduce((sum, meal) => sum + meal.fat, 0);
+
+            setGoals([
+              { name: 'Calories', current: totalCals, target: 2000, unit: '' },
+              { name: 'Protein', current: totalProt, target: 100, unit: 'g' },
+              { name: 'Carbs', current: totalCarbs, target: 225, unit: 'g' },
+              { name: 'Fat', current: totalFat, target: 65, unit: 'g' }
+            ]);
+            break;
+
+          case 'nutrientGaps':
+            setNutrientData(message.data);
+            break;
+
+          case 'recommendedMeal':
+            setSuggestion(message.data);
+            break;
+
+          default:
+            console.warn('Unknown component:', message.component);
+        }
+      };
+
+      ws.current.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setIsConnected(false);
+      };
+
+      ws.current.onclose = () => {
+        console.log('WebSocket disconnected');
+        setIsConnected(false);
+        // Attempt to reconnect after 3 seconds
+        setTimeout(connectWebSocket, 3000);
+      };
+    };
+
+    connectWebSocket();
+
+    // Cleanup on unmount
+    return () => {
+      if (ws.current) {
+        ws.current.close();
+      }
+    };
+  }, []);
+
   // Calculate total calories and protein
   const totalCalories = meals.reduce((sum, meal) => sum + meal.calories, 0);
   const totalProtein = meals.reduce((sum, meal) => sum + meal.protein, 0);
 
   const handleMealSubmit = async (mealText) => {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    if (!isConnected) {
+      console.error('WebSocket not connected');
+      return;
+    }
 
-    // For demo purposes, just add a sample meal
-    const newMeal = {
-      id: Date.now(),
-      time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-      description: mealText,
-      calories: 350,
-      protein: 25,
-      carbs: 40,
-      fat: 12
-    };
-
-    setMeals([...meals, newMeal]);
-
-    // Update goals
-    setGoals(goals.map(goal => {
-      const updates = {
-        'Calories': 350,
-        'Protein': 25,
-        'Carbs': 40,
-        'Fat': 12
-      };
-      return {
-        ...goal,
-        current: goal.current + (updates[goal.name] || 0)
-      };
+    // Send message to backend via WebSocket
+    ws.current.send(JSON.stringify({
+      action: 'add_meal',
+      text: mealText
     }));
+
+    // The backend will broadcast updates to all clients
+    // No need to update state here - wait for WebSocket message
   };
 
   const handleDeleteMeal = (mealId) => {
@@ -259,7 +315,7 @@ function App() {
             <div className="right-column">
               {/* <DailyGoals goals={goals} /> */}
               <TopNutrientGaps nutrientData={nutrientData} />
-              <NextMealSuggestion />
+              <NextMealSuggestion suggestion={suggestion} />
               <NutrientAnalysis analysis={analysis} />
             </div>
           </div>

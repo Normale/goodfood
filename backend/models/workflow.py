@@ -5,7 +5,7 @@ from typing_extensions import TypedDict
 
 from pydantic import BaseModel
 
-from src.models.nutrition import NutritionRecord
+from models.nutrition import NutritionRecord
 
 
 class WorkflowState(TypedDict, total=False):

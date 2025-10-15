@@ -7,9 +7,9 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.database.connection import get_db_session
-from src.models.database import NutritionHistory
-from src.models.nutrition import MealType, NutritionRecord
+from database.connection import get_db_session
+from models.database import NutritionHistory
+from models.nutrition import MealType, NutritionRecord
 
 
 class DatabaseGateway:

@@ -2,7 +2,6 @@
 name = "goodfood"
 version = "0.2.0"
 description = "Multi-agent nutrition tracking system powered by AI"
-readme = "README.md"
 requires-python = ">=3.10,<3.13"
 dependencies = [
     # LLM & Agent Framework
@@ -42,12 +41,15 @@ dev = [
 [project.scripts]
 goodfood = "main:main"
 
+[tool.uv]
+package = true
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src"]
+packages = ["agents", "api", "config", "database", "integrations", "models", "workflows"]
 
 [tool.ruff]
 target-version = "py310"
