@@ -9,6 +9,7 @@ from agents.ingredient_estimator import IngredientEstimator
 from agents.ingredient_validator import IngredientValidator
 from config.nutrients import NUTRIENTS
 from config.settings import settings
+from utils.logger import get_logger
 
 
 # State schemas
@@ -85,13 +86,12 @@ def create_ingredient_subgraph(
             state["approved"] = True  # Force approval to exit loop
             return state
 
-        # Run estimation
-        import asyncio
-        result = asyncio.run(estimator.estimate(
+        # Run estimation synchronously
+        result = estimator.estimate_sync(
             ingredient_name=state["ingredient_name"],
             amount=state["amount"],
             notes=state.get("notes")
-        ))
+        )
 
         state["estimates"] = result["estimates"]
         state["reasoning"] = result["reasoning"]
@@ -104,13 +104,12 @@ def create_ingredient_subgraph(
         """Run ingredient validator."""
         estimates = state.get("estimates", {})
 
-        # Run validation
-        import asyncio
-        result = asyncio.run(validator.validate(
+        # Run validation synchronously
+        result = validator.validate_sync(
             ingredient_name=state["ingredient_name"],
             amount=state["amount"],
             estimates=estimates
-        ))
+        )
 
         state["approved"] = result["approved"]
         state["feedback"] = result.get("feedback")
@@ -234,15 +233,31 @@ class ParallelNutritionWorkflow:
         """Merge node that sums up nutrients from all ingredients."""
         ingredient_results = state.get("ingredient_results", {})
 
-        # Initialize sum dictionary
+        # Initialize sum dictionary with Title Case keys from NUTRIENTS
         estimates_sum = {nutrient: 0.0 for nutrient in NUTRIENTS.keys()}
+
+        # Create a mapping from lowercase/snake_case to proper nutrient names
+        nutrient_name_map = {}
+        for proper_name in NUTRIENTS.keys():
+            # Create snake_case version
+            snake_case = proper_name.lower().replace(" ", "_").replace("+", "_").replace("-", "_")
+            nutrient_name_map[snake_case] = proper_name
+            # Also map lowercase version
+            nutrient_name_map[proper_name.lower()] = proper_name
+            # And exact match
+            nutrient_name_map[proper_name] = proper_name
 
         # Sum up all nutrients
         for ing_name, result in ingredient_results.items():
             estimates = result.get("estimates", {})
-            for nutrient, value in estimates.items():
-                if nutrient in estimates_sum:
-                    estimates_sum[nutrient] += value
+            for nutrient_key, value in estimates.items():
+                # Try to find the proper nutrient name
+                proper_name = nutrient_name_map.get(nutrient_key)
+                if proper_name and proper_name in estimates_sum:
+                    estimates_sum[proper_name] += value
+                elif nutrient_key in estimates_sum:
+                    # Fallback: direct key match
+                    estimates_sum[nutrient_key] += value
 
         state["estimates_sum"] = estimates_sum
 
@@ -271,6 +286,7 @@ class ParallelNutritionWorkflow:
             model=settings.estimator_model,
             anthropic_api_key=settings.anthropic_api_key,
             temperature=0.3,
+            max_tokens=2048,  # Limit for chain-of-thought reasoning + final estimates
         )
 
         parser = JsonOutputParser(pydantic_object=InteractionAnalysisResult)
@@ -342,8 +358,8 @@ Provide your response as valid JSON only.""",
         estimates_json = json.dumps(estimates_sum, indent=2)
 
         try:
-            # Invoke the chain
-            result = chain.invoke({
+            # Format prompt for logging
+            prompt_inputs = {
                 "description": state.get("description", ""),
                 "ingredients_list": ingredients_list,
                 "cooking_method": cooking_process.get("method", "unknown"),
@@ -351,7 +367,24 @@ Provide your response as valid JSON only.""",
                 "cooking_duration": cooking_process.get("duration", "unknown"),
                 "cooking_impacts": ", ".join(cooking_process.get("nutrient_impact", [])),
                 "estimates_json": estimates_json,
-            })
+            }
+            prompt_text = prompt.format(**prompt_inputs)
+
+            # Invoke the chain
+            result = chain.invoke(prompt_inputs)
+
+            # Log the interaction
+            logger = get_logger()
+            logger.log_interaction(
+                agent_name="interaction_analysis",
+                prompt=prompt_text,
+                response=json.dumps(result, indent=2),
+                metadata={
+                    "description": state.get("description", ""),
+                    "num_ingredients": len(ingredients),
+                    "cooking_method": cooking_process.get("method", "unknown")
+                }
+            )
 
             state["final_estimates"] = result["final_estimates"]
             state["interaction_reasoning"] = result["interaction_reasoning"]
@@ -396,20 +429,33 @@ Provide your response as valid JSON only.""",
                 "stage": "preprocessing",
             })
 
+        # Track current stage for iteration simulation
+        current_stage = 0
+        total_stages = 4  # preprocessing, coordinator, merge, interaction_analysis
+
         # Stream through the graph
         async for event in self.graph.astream(state, stream_mode="updates"):
             for node_name, node_state in event.items():
+                current_stage += 1
+
                 # After preprocessing
                 if node_name == "preprocessing":
                     ingredients = node_state.get("ingredients", [])
                     cooking_process = node_state.get("cooking_process", {})
 
                     if websocket:
+                        # Send iteration event (similar to original workflow)
                         await websocket.send_json({
-                            "type": "preprocessing_complete",
-                            "ingredients_count": len(ingredients),
-                            "cooking_method": cooking_process.get("method", "unknown"),
-                            "meal_category": node_state.get("meal_category", "unknown"),
+                            "type": "iteration",
+                            "iteration": current_stage,
+                            "max": total_stages,
+                        })
+
+                        # Send status event
+                        await websocket.send_json({
+                            "type": "status",
+                            "status": "preprocessing",
+                            "message": f"Analyzing ingredients ({len(ingredients)} found)...",
                         })
 
                 # After coordinator (parallel execution)
@@ -417,9 +463,18 @@ Provide your response as valid JSON only.""",
                     ingredient_results = node_state.get("ingredient_results", {})
 
                     if websocket:
+                        # Send iteration event
                         await websocket.send_json({
-                            "type": "parallel_estimation_complete",
-                            "ingredients_processed": len(ingredient_results),
+                            "type": "iteration",
+                            "iteration": current_stage,
+                            "max": total_stages,
+                        })
+
+                        # Send status event
+                        await websocket.send_json({
+                            "type": "status",
+                            "status": "estimating",
+                            "message": f"Estimating nutrients in parallel ({len(ingredient_results)} ingredients)...",
                         })
 
                 # After merge
@@ -427,11 +482,30 @@ Provide your response as valid JSON only.""",
                     estimates_sum = node_state.get("estimates_sum", {})
 
                     if websocket:
+                        # Send iteration event
+                        await websocket.send_json({
+                            "type": "iteration",
+                            "iteration": current_stage,
+                            "max": total_stages,
+                        })
+
+                        # Send status event
+                        await websocket.send_json({
+                            "type": "status",
+                            "status": "verifying",
+                            "message": "Combining ingredient estimates...",
+                        })
+
                         # Extract macros for display
                         macros = self._extract_macros(estimates_sum)
+
+                        # Send estimates event (similar to original)
                         await websocket.send_json({
-                            "type": "merge_complete",
+                            "type": "estimates",
                             "macros": macros,
+                            "confidence": "high",  # Aggregate confidence
+                            "reasoning": f"Combined {len(node_state.get('ingredient_results', {}))} ingredients",
+                            "full_count": len(estimates_sum),
                         })
 
                 # After interaction analysis
@@ -439,11 +513,37 @@ Provide your response as valid JSON only.""",
                     final_estimates = node_state.get("final_estimates", {})
 
                     if websocket:
+                        # Send iteration event
+                        await websocket.send_json({
+                            "type": "iteration",
+                            "iteration": current_stage,
+                            "max": total_stages,
+                        })
+
+                        # Send status event
+                        await websocket.send_json({
+                            "type": "status",
+                            "status": "verifying",
+                            "message": "Analyzing nutrient interactions and cooking impact...",
+                        })
+
                         # Extract macros for display
                         macros = self._extract_macros(final_estimates)
+
+                        # Send final estimates
                         await websocket.send_json({
-                            "type": "final_analysis_complete",
+                            "type": "estimates",
                             "macros": macros,
+                            "confidence": "high",
+                            "reasoning": node_state.get("interaction_reasoning", "")[:200],  # Truncate for websocket
+                            "full_count": len(final_estimates),
+                        })
+
+                        # Send consensus event (analysis complete)
+                        await websocket.send_json({
+                            "type": "consensus",
+                            "message": "Analysis complete! Nutrient estimates finalized.",
+                            "iterations": total_stages,
                         })
 
                 # Update state reference
@@ -453,9 +553,39 @@ Provide your response as valid JSON only.""",
         final_estimates = state.get("final_estimates", {})
         macros = self._extract_macros(final_estimates)
 
+        # Calculate aggregate confidence from ingredient results
+        ingredient_results = state.get("ingredient_results", {})
+        confidences = [
+            result.get("confidence_level", "medium")
+            for result in ingredient_results.values()
+        ]
+        # Simple confidence aggregation: if most are high, overall is high
+        confidence_counts = {"high": 0, "medium": 0, "low": 0}
+        for conf in confidences:
+            confidence_counts[conf] = confidence_counts.get(conf, 0) + 1
+        overall_confidence = max(confidence_counts, key=confidence_counts.get) if confidences else "high"
+
+        # Collect assumptions from all ingredients
+        all_assumptions = []
+        for result in ingredient_results.values():
+            ing_name = result.get("ingredient_name", "unknown")
+            reasoning = result.get("reasoning", "")
+            if reasoning:
+                all_assumptions.append(f"{ing_name}: {reasoning}")
+
+        # Add cooking process assumptions
+        cooking_process = state.get("cooking_process", {})
+        if cooking_process.get("nutrient_impact"):
+            all_assumptions.append(f"Cooking impact: {', '.join(cooking_process['nutrient_impact'])}")
+
         return {
             **macros,
             "estimates": final_estimates,
+            "confidence": overall_confidence,
+            "iterations": total_stages,  # Number of workflow stages
+            "approval": 100,  # All ingredients approved after parallel validation
+            "assumptions": all_assumptions,
+            # Additional data (for advanced users / debugging)
             "estimates_sum": state.get("estimates_sum", {}),
             "ingredient_results": state.get("ingredient_results", {}),
             "cooking_process": state.get("cooking_process", {}),

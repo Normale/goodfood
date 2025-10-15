@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, create_model
 
 from config.nutrients import NUTRIENTS, get_formatted_nutrient_list
 from config.settings import settings
+from utils.logger import get_logger
 
 
 # Dynamically create Pydantic model for nutrient estimates
@@ -50,6 +51,7 @@ class IngredientEstimator:
             model=model_name or settings.estimator_model,
             anthropic_api_key=settings.anthropic_api_key,
             temperature=0.3,
+            max_tokens=1024,  # Limit for single ingredient nutrient estimates
         )
 
         # Create output parser for structured responses
@@ -85,6 +87,70 @@ Provide your response as valid JSON only.""",
 
         # Create the chain
         self.chain = self.prompt | self.llm | self.parser
+
+    def estimate_sync(
+        self,
+        ingredient_name: str,
+        amount: str,
+        notes: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Estimate nutrients for a single ingredient (synchronous for LangGraph).
+
+        Args:
+            ingredient_name: Name of the ingredient
+            amount: Amount with unit
+            notes: Optional notes about the ingredient
+
+        Returns:
+            Dict with nutrient estimates
+        """
+        try:
+            # Format prompt for logging
+            prompt_text = self.prompt.format(
+                ingredient_name=ingredient_name,
+                amount=amount,
+                notes=notes or "None"
+            )
+
+            # Invoke the chain synchronously
+            result = self.chain.invoke({
+                "ingredient_name": ingredient_name,
+                "amount": amount,
+                "notes": notes or "None",
+            })
+
+            # Log the interaction with ingredient name
+            logger = get_logger()
+            logger.log_interaction(
+                agent_name="estimator",
+                prompt=prompt_text,
+                response=json.dumps(result, indent=2),
+                ingredient_name=ingredient_name,
+                metadata={"amount": amount, "notes": notes}
+            )
+
+            return result
+
+        except json.JSONDecodeError as e:
+            print(f"Error parsing JSON response for {ingredient_name}: {e}")
+            # Return default structure
+            return {
+                "ingredient_name": ingredient_name,
+                "amount": amount,
+                "estimates": {nutrient: 0.0 for nutrient in NUTRIENTS.keys()},
+                "reasoning": "Failed to parse response",
+                "confidence_level": "low",
+            }
+        except Exception as e:
+            print(f"Error during estimation for {ingredient_name}: {e}")
+            # Return default structure
+            return {
+                "ingredient_name": ingredient_name,
+                "amount": amount,
+                "estimates": {nutrient: 0.0 for nutrient in NUTRIENTS.keys()},
+                "reasoning": f"Error: {str(e)}",
+                "confidence_level": "low",
+            }
 
     async def estimate(
         self,

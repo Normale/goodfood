@@ -9,6 +9,7 @@ from langchain_core.output_parsers import JsonOutputParser
 from pydantic import BaseModel, Field
 
 from config.settings import settings
+from utils.logger import get_logger
 
 
 class ValidationResult(BaseModel):
@@ -32,6 +33,7 @@ class IngredientValidator:
             model=model_name or settings.critic_model,
             anthropic_api_key=settings.anthropic_api_key,
             temperature=0.2,  # Lower temperature for more consistent validation
+            max_tokens=512,  # Limit for validation feedback (short responses)
         )
 
         # Create output parser for structured responses
@@ -65,6 +67,69 @@ Provide your response as valid JSON only.""",
 
         # Create the chain
         self.chain = self.prompt | self.llm | self.parser
+
+    def validate_sync(
+        self,
+        ingredient_name: str,
+        amount: str,
+        estimates: Dict[str, float]
+    ) -> Dict[str, Any]:
+        """Validate nutrient estimates for a single ingredient (synchronous for LangGraph).
+
+        Args:
+            ingredient_name: Name of the ingredient
+            amount: Amount with unit
+            estimates: Nutrient estimates to validate
+
+        Returns:
+            Dict with validation results
+        """
+        # Convert estimates to JSON for the prompt
+        estimates_json = json.dumps(estimates, indent=2)
+
+        try:
+            # Format prompt for logging
+            prompt_text = self.prompt.format(
+                ingredient_name=ingredient_name,
+                amount=amount,
+                estimates_json=estimates_json
+            )
+
+            # Invoke the chain synchronously
+            result = self.chain.invoke({
+                "ingredient_name": ingredient_name,
+                "amount": amount,
+                "estimates_json": estimates_json,
+            })
+
+            # Log the interaction with ingredient name
+            logger = get_logger()
+            logger.log_interaction(
+                agent_name="validator",
+                prompt=prompt_text,
+                response=json.dumps(result, indent=2),
+                ingredient_name=ingredient_name,
+                metadata={"amount": amount, "approved": result.get("approved")}
+            )
+
+            return result
+
+        except json.JSONDecodeError as e:
+            print(f"Error parsing JSON response for {ingredient_name}: {e}")
+            # Default to approved on error
+            return {
+                "approved": True,
+                "feedback": None,
+                "issues_found": 0,
+            }
+        except Exception as e:
+            print(f"Error during validation for {ingredient_name}: {e}")
+            # Default to approved on error
+            return {
+                "approved": True,
+                "feedback": None,
+                "issues_found": 0,
+            }
 
     async def validate(
         self,

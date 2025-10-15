@@ -9,6 +9,7 @@ from langchain_core.output_parsers import JsonOutputParser
 from pydantic import BaseModel, Field
 
 from config.settings import settings
+from utils.logger import get_logger
 
 
 class IngredientEstimate(BaseModel):
@@ -53,6 +54,7 @@ class PreprocessingAgent:
             model=model_name or settings.estimator_model,
             anthropic_api_key=settings.anthropic_api_key,
             temperature=0.3,
+            max_tokens=1500,  # Limit for ingredient list + cooking process
         )
 
         # Create output parser for structured responses
@@ -104,8 +106,20 @@ Provide your response as valid JSON only.""",
         description = state["description"]
 
         try:
+            # Format prompt for logging
+            prompt_text = self.prompt.format(description=description)
+
             # Invoke the chain synchronously
             result = self.chain.invoke({"description": description})
+
+            # Log the interaction
+            logger = get_logger()
+            logger.log_interaction(
+                agent_name="preprocessing",
+                prompt=prompt_text,
+                response=json.dumps(result, indent=2),
+                metadata={"description": description}
+            )
 
             # Update state with preprocessing results
             state["ingredients"] = result["ingredients"]

@@ -43,6 +43,7 @@ class InputCritic:
             model=model_name or settings.critic_model,
             anthropic_api_key=settings.anthropic_api_key,
             temperature=0.2,  # Lower temperature for more consistent verification
+            max_tokens=1024,  # Limit for verification feedback and issues list
         )
 
         # Create output parser for structured responses
