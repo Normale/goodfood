@@ -49,6 +49,7 @@ class InputAgent:
             model=model_name or settings.estimator_model,
             anthropic_api_key=settings.anthropic_api_key,
             temperature=0.3,
+            max_tokens=2048,  # Limit for full meal nutrient estimates + reasoning
         )
 
         # Create output parser for structured responses

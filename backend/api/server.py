@@ -8,6 +8,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from workflows.nutrition_langgraph import NutritionEstimationWorkflow
+from workflows.parallel_nutrition_workflow import ParallelNutritionWorkflow
 
 app = FastAPI(title="GoodFood Nutrition API")
 
@@ -125,8 +126,8 @@ async def websocket_endpoint(websocket: WebSocket):
                 meal_text = message.get("text", "")
                 print(f"Estimating nutrition for: {meal_text}")
 
-                # Use nutrition workflow to estimate
-                workflow = NutritionEstimationWorkflow()
+                # Use parallel nutrition workflow to estimate
+                workflow = ParallelNutritionWorkflow(max_rounds_per_ingredient=3)
                 result = await workflow.estimate_meal(meal_text, websocket)
 
                 # Create new meal with estimated nutrition
