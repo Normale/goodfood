@@ -108,16 +108,15 @@ class GapAnalysisWorkflow:
         """
         meals = state.get("meals", [])
 
-        # Initialize totals
-        total_nutrients: Dict[str, float] = {}
+        # Initialize totals with zeros for all known nutrients
+        total_nutrients: Dict[str, float] = {nutrient: 0.0 for nutrient in NUTRITION_GOALS.keys()}
 
         # Sum up all nutrients from meals
         for meal in meals:
             detailed_nutrients = meal.get("detailed_nutrients", {})
             for nutrient_name, value in detailed_nutrients.items():
-                if nutrient_name not in total_nutrients:
-                    total_nutrients[nutrient_name] = 0.0
-                total_nutrients[nutrient_name] += float(value)
+                if nutrient_name in total_nutrients:
+                    total_nutrients[nutrient_name] += float(value)
 
         state["total_nutrients"] = total_nutrients
 
@@ -146,72 +145,40 @@ class GapAnalysisWorkflow:
         """
         total_nutrients = state.get("total_nutrients", {})
 
-        # Create nutrient name mapping to handle various formats
-        # Maps goal names to possible variants in meal data
-        nutrient_mapping = {
-            # B Vitamins (handle "Vitamin B1 Thiamine" -> "Thiamine")
-            "Thiamine": ["Thiamine", "Vitamin B1 Thiamine", "Vitamin B1", "B1"],
-            "Riboflavin": ["Riboflavin", "Vitamin B2 Riboflavin", "Vitamin B2", "B2"],
-            "Niacin": ["Niacin", "Vitamin B3 Niacin", "Vitamin B3", "B3"],
-            "Pantothenic Acid": ["Pantothenic Acid", "Pantothenic acid", "Vitamin B5 Pantothenic acid", "Vitamin B5", "B5"],
-            "Pyridoxine": ["Pyridoxine", "Vitamin B6 Pyridoxine", "Vitamin B6", "B6"],
-            "Biotin": ["Biotin", "Vitamin B7 Biotin", "Vitamin B7", "B7"],
-            "Folate": ["Folate", "Vitamin B9 Folate", "Vitamin B9", "B9", "Folic Acid"],
-            "Vitamin B12": ["Vitamin B12", "B12", "Cobalamin"],
-
-            # Fiber (handle "Soluble Fiber" + "Insoluble Fiber" -> "Fiber")
-            "Fiber": ["Fiber", "Total Fiber", "Dietary Fiber"],
-
-            # Other nutrients that might have variants
-            "Vitamin C": ["Vitamin C", "Ascorbic Acid"],
-            "Vitamin A": ["Vitamin A", "Retinol"],
-            "Vitamin E": ["Vitamin E", "Alpha-Tocopherol"],
-            "Vitamin K": ["Vitamin K", "Phylloquinone"],
-            "Vitamin D": ["Vitamin D", "Cholecalciferol"],
-        }
-
-        def get_nutrient_value(nutrient_name: str) -> float:
-            """Get nutrient value from total_nutrients, trying various name formats."""
-            # Try exact match first
-            if nutrient_name in total_nutrients:
-                return total_nutrients[nutrient_name]
-
-            # Try mapped variants
-            if nutrient_name in nutrient_mapping:
-                for variant in nutrient_mapping[nutrient_name]:
-                    if variant in total_nutrients:
-                        return total_nutrients[variant]
-
-            # Special case: Fiber = Soluble Fiber + Insoluble Fiber
-            if nutrient_name == "Fiber":
-                soluble = total_nutrients.get("Soluble Fiber", 0.0)
-                insoluble = total_nutrients.get("Insoluble Fiber", 0.0)
-                if soluble > 0 or insoluble > 0:
-                    return soluble + insoluble
-
-            return 0.0
-
         # Calculate gaps for all nutrients in goals
         gaps = []
-        matching_log = []  # For detailed logging
+        all_nutrients_analysis = []  # Track ALL nutrients (included + excluded)
 
         for nutrient_name, goal_data in NUTRITION_GOALS.items():
             target = goal_data.get("target", 0)
             unit = goal_data.get("unit", "")
             priority = goal_data.get("priority", "medium")
 
-            # Get current amount using smart mapping
-            current = get_nutrient_value(nutrient_name)
-
-            # Log the matching for debugging
-            if current > 0:
-                matching_log.append(f"  {nutrient_name}: found {current} (target: {target})")
-            else:
-                matching_log.append(f"  {nutrient_name}: NOT FOUND (target: {target})")
+            # Get current amount (keys match exactly now)
+            current = total_nutrients.get(nutrient_name, 0.0)
 
             # Calculate deficit and percentage
             deficit = max(0, target - current)
             percentage = (current / target * 100) if target > 0 else 100
+
+            # Track this nutrient in our comprehensive analysis
+            status = ""
+            if percentage >= 100:
+                status = "EXCLUDED (>= 100%)"
+            elif current == 0:
+                status = "INCLUDED (0% - not found)"
+            else:
+                status = "INCLUDED (gap)"
+
+            all_nutrients_analysis.append({
+                "nutrient": nutrient_name,
+                "current": round(current, 2),
+                "target": target,
+                "percentage": round(percentage, 1),
+                "unit": unit,
+                "priority": priority,
+                "status": status,
+            })
 
             # Only include gaps below 100%
             if percentage < 100:
@@ -255,21 +222,70 @@ class GapAnalysisWorkflow:
         state["nutrient_gaps"] = gaps
         state["top_gaps"] = top_gaps
 
-        # Detailed logging
-        matching_summary = "\n".join(matching_log)
-        log_response = f"Found {len(gaps)} nutrient gaps, top 5 selected\n\nNutrient Matching:\n{matching_summary}\n\nTop 5 Gaps:\n"
+        # Create comprehensive logging showing ALL nutrients
+        import json
+
+        # Separate included and excluded nutrients
+        included = [n for n in all_nutrients_analysis if "INCLUDED" in n["status"]]
+        excluded = [n for n in all_nutrients_analysis if "EXCLUDED" in n["status"]]
+
+        # Build detailed log response
+        log_response = f"""
+================================================================================
+NUTRIENT GAP CALCULATION SUMMARY
+================================================================================
+
+TOTAL NUTRIENTS IN GOALS: {len(NUTRITION_GOALS)}
+GAPS IDENTIFIED (< 100%): {len(gaps)}
+NUTRIENTS AT OR ABOVE TARGET (>= 100%): {len(excluded)}
+
+================================================================================
+INCLUDED GAPS (Nutrients below 100% target):
+================================================================================
+"""
+
+        for i, nutrient in enumerate(included, 1):
+            log_response += f"{i:2d}. {nutrient['nutrient']:<25} | Current: {nutrient['current']:>8.2f} / Target: {nutrient['target']:>8} {nutrient['unit']:<6} | {nutrient['percentage']:>6.1f}% | Priority: {nutrient['priority']}\n"
+
+        log_response += f"""
+================================================================================
+EXCLUDED NUTRIENTS (At or above target >= 100%):
+================================================================================
+"""
+
+        for i, nutrient in enumerate(excluded, 1):
+            log_response += f"{i:2d}. {nutrient['nutrient']:<25} | Current: {nutrient['current']:>8.2f} / Target: {nutrient['target']:>8} {nutrient['unit']:<6} | {nutrient['percentage']:>6.1f}% | Priority: {nutrient['priority']}\n"
+
+        log_response += f"""
+================================================================================
+TOP 5 PRIORITY GAPS (sent to prioritize_gaps):
+================================================================================
+"""
+
         for i, gap in enumerate(gaps[:5], 1):
-            log_response += f"  {i}. {gap['nutrient']}: {gap['percentage']:.1f}% ({gap['current']}/{gap['target']} {gap['unit']})\n"
+            log_response += f"{i}. {gap['nutrient']}: {gap['percentage']:.1f}% ({gap['current']}/{gap['target']} {gap['unit']}) - Priority: {gap['priority']}\n"
+
+        log_response += f"""
+================================================================================
+FILTERING SUMMARY:
+- Started with {len(NUTRITION_GOALS)} nutrient goals
+- Found {len(gaps)} gaps (< 100% of target)
+- Excluded {len(excluded)} nutrients (>= 100% of target)
+- Top {min(5, len(gaps))} gaps sent to frontend and prioritization
+================================================================================
+"""
 
         self.logger.log_interaction(
             agent_name="calculate_gaps",
-            prompt=f"Calculate nutrient gaps\n\nAvailable nutrients in total_nutrients:\n" + "\n".join([f"  - {k}" for k in total_nutrients.keys()]),
+            prompt=f"Calculate nutrient gaps\n\nAvailable nutrients in total_nutrients ({len(total_nutrients)} total):\n" + "\n".join([f"  - {k}: {v}" for k, v in sorted(total_nutrients.items())]),
             response=log_response,
             metadata={
-                "total_gaps": len(gaps),
+                "total_goals_checked": len(NUTRITION_GOALS),
+                "total_gaps_found": len(gaps),
+                "nutrients_excluded": len(excluded),
                 "top_gap": gaps[0]["nutrient"] if gaps else "none",
-                "nutrients_found": sum(1 for gap in gaps if gap["current"] > 0),
-                "nutrients_missing": sum(1 for gap in gaps if gap["current"] == 0)
+                "nutrients_with_values": sum(1 for n in included if n["current"] > 0),
+                "nutrients_not_found": sum(1 for n in included if n["current"] == 0)
             }
         )
 

@@ -466,7 +466,7 @@ Provide your response as valid JSON only.""",
                 }
             )
 
-            # Store results in state
+            # Store results in state (LLM should already use canonical keys)
             state["final_estimates"] = result["final_estimates"]
             state["interaction_reasoning"] = detailed_analysis[:500] + "..." if len(detailed_analysis) > 500 else detailed_analysis
             state["process_impact_reasoning"] = result["summary"]
@@ -688,9 +688,9 @@ Provide your response as valid JSON only.""",
         Returns:
             Dict with calories, protein, carbs, fat
         """
-        protein = estimates.get("Protein", 0)
-        carbs = estimates.get("Carbohydrates", 0)
-        fat = estimates.get("Total Fats", 0)
+        protein = estimates.get("protein", 0)
+        carbs = estimates.get("carbohydrates", 0)
+        fat = estimates.get("total-fats", 0)
 
         # Calculate calories (4 cal/g protein, 4 cal/g carbs, 9 cal/g fat)
         calories = (protein * 4) + (carbs * 4) + (fat * 9)

@@ -19,7 +19,8 @@
       "Bash(python:*)",
       "Bash(cp:*)",
       "Bash(.venv/Scripts/python.exe:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(dir \"C:\\Users\\bartek\\GitHub\\goodfood\\backend\\logs\" /O-D /B)"
     ],
     "deny": [],
     "ask": []
