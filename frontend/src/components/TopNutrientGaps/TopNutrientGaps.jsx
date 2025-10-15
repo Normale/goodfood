@@ -2,32 +2,10 @@ import { motion } from 'framer-motion';
 import { TrendingDownIcon } from '../ui/Icons';
 import './TopNutrientGaps.css';
 
-// Sample nutrients data structure
-const sampleNutrients = [
-  { id: 'vitamin_d', name: 'Vitamin D', unit: 'mcg', dailyTarget: 20 },
-  { id: 'fiber', name: 'Fiber', unit: 'g', dailyTarget: 30 },
-  { id: 'iron', name: 'Iron', unit: 'mg', dailyTarget: 18 },
-  { id: 'calcium', name: 'Calcium', unit: 'mg', dailyTarget: 1000 },
-  { id: 'vitamin_b12', name: 'Vitamin B12', unit: 'mcg', dailyTarget: 2.4 },
-  { id: 'omega_3', name: 'Omega-3', unit: 'g', dailyTarget: 1.6 },
-];
-
-const TopNutrientGaps = ({ nutrientData = {}, maxGaps = 5 }) => {
-  const getTopDeficiencies = () => {
-    const deficiencies = sampleNutrients
-      .map(nutrient => {
-        const current = nutrientData[nutrient.id] || 0;
-        const target = nutrient.dailyTarget || 100;
-        const percentage = (current / target) * 100;
-        return { ...nutrient, current, percentage, deficit: target - current };
-      })
-      .filter(n => n.percentage < 80)
-      .sort((a, b) => a.percentage - b.percentage)
-      .slice(0, maxGaps);
-    return deficiencies;
-  };
-
-  const topDeficiencies = getTopDeficiencies();
+const TopNutrientGaps = ({ nutrientData = [], maxGaps = 5 }) => {
+  // nutrientData is now an array of gap objects from the backend
+  // Each gap object has: { id, name, current, target, deficit, percentage, unit }
+  const topDeficiencies = Array.isArray(nutrientData) ? nutrientData.slice(0, maxGaps) : [];
 
   if (topDeficiencies.length === 0) {
     return (
@@ -38,11 +16,11 @@ const TopNutrientGaps = ({ nutrientData = {}, maxGaps = 5 }) => {
           </div>
           <div className="gaps-header-content">
             <h3>Nutrient Status</h3>
-            <p className="optimal-text">All nutrients are optimal!</p>
+            <p className="optimal-text">Add meals to track gaps</p>
           </div>
         </div>
         <p className="gaps-message">
-          Great job! All your tracked nutrients are at 80% or above their daily targets.
+          Start tracking your meals to see which nutrients you need more of.
         </p>
       </div>
     );
@@ -85,7 +63,7 @@ const TopNutrientGaps = ({ nutrientData = {}, maxGaps = 5 }) => {
 
             <div className="gap-item-footer">
               <p className="gap-current">
-                {nutrient.current.toFixed(1)} / {nutrient.dailyTarget} {nutrient.unit}
+                {nutrient.current.toFixed(1)} / {nutrient.target} {nutrient.unit}
               </p>
               <p className="gap-deficit">
                 Need {nutrient.deficit.toFixed(1)} {nutrient.unit}
