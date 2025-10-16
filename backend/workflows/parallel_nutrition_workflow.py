@@ -563,7 +563,7 @@ Provide your response as valid JSON only.""",
                             "message": f"Analyzing ingredients ({len(ingredients)} found)...",
                         })
 
-                        # Now predictively show what's coming next: estimator-validator loops for each ingredient
+                        # Now predictively show what's coming next: estimators for all ingredients
                         for ing in ingredients:
                             ing_name = ing["name"]
                             ing_amount = ing["amount"]
@@ -577,15 +577,6 @@ Provide your response as valid JSON only.""",
                                 "ingredient": ing_name,
                             })
 
-                            # Show validator status as "running"
-                            await websocket.send_json({
-                                "type": "agent_status",
-                                "agent_type": "validator",
-                                "status": "running",
-                                "message": f"Validating ({ing_name}: {ing_amount})",
-                                "ingredient": ing_name,
-                            })
-
                 # After coordinator (parallel execution)
                 elif node_name == "coordinator":
                     ingredient_results = node_state.get("ingredient_results", {})
@@ -594,7 +585,7 @@ Provide your response as valid JSON only.""",
                     if websocket:
                         import asyncio
 
-                        # Mark all estimators and validators as done
+                        # Mark all estimators as done
                         for ing in ingredients:
                             ing_name = ing["name"]
                             ing_amount = ing["amount"]
@@ -607,6 +598,25 @@ Provide your response as valid JSON only.""",
                                 "message": f"Estimated ({ing_name}: {ing_amount})",
                                 "ingredient": ing_name,
                             })
+
+                        # Now show all validators as running
+                        for ing in ingredients:
+                            ing_name = ing["name"]
+                            ing_amount = ing["amount"]
+
+                            # Show validator as running
+                            await websocket.send_json({
+                                "type": "agent_status",
+                                "agent_type": "validator",
+                                "status": "running",
+                                "message": f"Validating ({ing_name}: {ing_amount})",
+                                "ingredient": ing_name,
+                            })
+
+                        # Mark all validators as done
+                        for ing in ingredients:
+                            ing_name = ing["name"]
+                            ing_amount = ing["amount"]
 
                             # Mark validator as done
                             await websocket.send_json({
