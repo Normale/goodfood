@@ -1,98 +1,172 @@
-import { motion, AnimatePresence } from 'framer-motion';
-import { SparklesIcon, CheckCircleIcon } from '../ui/Icons';
+import React from 'react';
+import {
+  Loader2,
+  CheckCircle,
+  Search,
+  Utensils,
+  Shield,
+  ShieldAlert
+} from 'lucide-react';
 import './AgentStatus.css';
 
-const AgentStatus = ({ agents, isThinking }) => {
-  const getAgentIcon = (agentType) => {
-    if (agentType === 'preprocessing') {
-      return '🔍';
-    } else if (agentType === 'estimator') {
-      return '⚖️';
-    } else if (agentType === 'validator') {
-      return '✓';
-    } else if (agentType === 'detailed_analyzer') {
-      return '🔬';
-    } else if (agentType === 'final_estimates') {
-      return '✅';
+const AgentStatus = ({ agents = [], isThinking = false }) => {
+  // Convert agent data to items format for rendering
+  const convertAgentToItem = (agent) => {
+    // Determine icon based on agent type and status
+    let icon = 'loader';
+    let status = 'active';
+
+    if (agent.status === 'done') {
+      icon = 'check';
+      status = 'done';
+    } else if (agent.agent_type === 'preprocessing') {
+      icon = 'search';
+      status = 'active';
+    } else if (agent.agent_type === 'estimator') {
+      icon = 'utensils';
+      status = 'active';
+    } else if (agent.agent_type === 'validator') {
+      icon = 'shield';
+      status = 'validating';
+    } else if (agent.agent_type === 'detailed_analyzer') {
+      icon = 'loader';
+      status = 'active';
     }
-    return '🤖';
+
+    return {
+      icon,
+      status,
+      text: agent.message || `${agent.agent_type} running...`
+    };
   };
 
-  const getAgentColor = (agentType) => {
-    if (agentType === 'preprocessing') {
-      return 'from-blue-500 to-cyan-600';
-    } else if (agentType === 'estimator') {
-      return 'from-purple-500 to-pink-600';
-    } else if (agentType === 'validator') {
-      return 'from-green-500 to-emerald-600';
-    } else if (agentType === 'detailed_analyzer') {
-      return 'from-orange-500 to-red-600';
-    } else if (agentType === 'final_estimates') {
-      return 'from-emerald-500 to-teal-600';
+  const items = agents.map(convertAgentToItem);
+
+  const getIcon = (iconType, status) => {
+    const iconStyle = {
+      width: '14px',
+      height: '14px',
+      color: status === 'done' ? '#10b981' :
+             status === 'active' ? '#06b6d4' :
+             status === 'validating' ? '#f59e0b' :
+             '#a855f7',
+      animation: status === 'active' && iconType === 'loader' ? 'spin 1s linear infinite' : 'none'
+    };
+
+    switch (iconType) {
+      case 'loader':
+        return <Loader2 style={iconStyle} />;
+      case 'check':
+        return <CheckCircle style={{ ...iconStyle, color: '#10b981' }} />;
+      case 'search':
+        return <Search style={iconStyle} />;
+      case 'utensils':
+        return <Utensils style={{ ...iconStyle, color: '#a855f7' }} />;
+      case 'shield':
+        return <Shield style={{ ...iconStyle, color: '#f59e0b' }} />;
+      default:
+        return <Loader2 style={iconStyle} />;
     }
-    return 'from-gray-500 to-gray-600';
   };
 
-  // Show "Thinking..." when no agents but workflow is active
-  if (isThinking && agents.length === 0) {
-    return (
-      <div className="agent-status-wrapper">
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          exit={{ opacity: 0, height: 0 }}
-          className="agent-thinking"
-        >
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-            className="thinking-spinner"
-          >
-            <SparklesIcon className="w-4 h-4 text-cyan-400" />
-          </motion.div>
-          <span className="thinking-text">Thinking...</span>
-        </motion.div>
-      </div>
-    );
-  }
+  const getItemStyle = (status) => {
+    if (status === 'done') {
+      return {
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        borderColor: 'rgba(16, 185, 129, 0.2)'
+      };
+    } else {
+      return {
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderColor: 'rgba(255, 255, 255, 0.1)'
+      };
+    }
+  };
 
-  // Don't show anything if no agents
-  if (agents.length === 0) {
+  const getTextStyle = (status) => {
+    return {
+      color: status === 'done' ? '#6ee7b7' : 'rgba(255, 255, 255, 0.8)',
+      fontSize: '12px',
+      fontWeight: '500',
+      margin: 0
+    };
+  };
+
+  const styles = {
+    statusContainer: {
+      marginTop: '16px',
+      paddingTop: '16px',
+      borderTop: '1px solid rgba(255, 255, 255, 0.1)'
+    },
+    emptyState: {
+      color: 'rgba(255, 255, 255, 0.4)',
+      fontSize: '14px'
+    },
+    itemsContainer: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '8px'
+    },
+    statusItem: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      padding: '8px 12px',
+      borderRadius: '8px',
+      border: '1px solid',
+      transition: 'all 0.3s'
+    },
+    iconWrapper: {
+      flexShrink: 0
+    }
+  };
+
+  // Don't render if there's nothing to show
+  if (!isThinking && items.length === 0) {
     return null;
   }
 
   return (
-    <div className="agent-status-wrapper">
-      <AnimatePresence mode="popLayout">
-        {agents.map((agent) => (
-          <motion.div
-            key={agent.id}
-            initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-            animate={{ opacity: 1, height: 'auto', marginBottom: 6 }}
-            exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="agent-status-item"
-          >
-            <div className={`agent-icon-mini bg-gradient-to-br ${getAgentColor(agent.agent_type)}`}>
-              {agent.status === 'running' ? (
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-                  className="w-3 h-3"
-                >
-                  <SparklesIcon className="w-3 h-3 text-white" />
-                </motion.div>
-              ) : (
-                <CheckCircleIcon className="w-3 h-3 text-white" />
-              )}
-            </div>
-            <div className="agent-text">
-              <span className="agent-message-compact">{agent.message}</span>
-            </div>
-          </motion.div>
-        ))}
-      </AnimatePresence>
-    </div>
+    <>
+      <style>
+        {`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+
+          * {
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, sans-serif;
+          }
+        `}
+      </style>
+
+      <div style={styles.statusContainer}>
+        {items.length === 0 && isThinking ? (
+          <div style={styles.emptyState}>Thinking...</div>
+        ) : (
+          <div style={styles.itemsContainer}>
+            {items.map((item, index) => (
+              <div
+                key={index}
+                style={{
+                  ...styles.statusItem,
+                  ...getItemStyle(item.status)
+                }}
+              >
+                <div style={styles.iconWrapper}>
+                  {getIcon(item.icon, item.status)}
+                </div>
+                <p style={getTextStyle(item.status)}>
+                  {item.text}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
   );
 };
 
