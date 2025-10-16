@@ -1,11 +1,18 @@
 import { motion } from 'framer-motion';
 import { TrendingDownIcon } from '../ui/Icons';
+import { getNutrientDisplayName } from '../../utils/nutrientDisplay';
 import './TopNutrientGaps.css';
 
 const TopNutrientGaps = ({ nutrientData = [], maxGaps = 5 }) => {
   // nutrientData is now an array of gap objects from the backend
   // Each gap object has: { id, name, current, target, deficit, percentage, unit }
-  const topDeficiencies = Array.isArray(nutrientData) ? nutrientData.slice(0, maxGaps) : [];
+  // name contains the canonical key, we convert it to display name
+  const topDeficiencies = Array.isArray(nutrientData)
+    ? nutrientData.slice(0, maxGaps).map(gap => ({
+        ...gap,
+        displayName: getNutrientDisplayName(gap.name)
+      }))
+    : [];
 
   if (topDeficiencies.length === 0) {
     return (
@@ -48,7 +55,7 @@ const TopNutrientGaps = ({ nutrientData = [], maxGaps = 5 }) => {
             className="gap-item"
           >
             <div className="gap-item-header">
-              <h4>{nutrient.name}</h4>
+              <h4>{nutrient.displayName}</h4>
               <span className="gap-percentage">{nutrient.percentage.toFixed(0)}%</span>
             </div>
 
