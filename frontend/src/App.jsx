@@ -111,6 +111,7 @@ function App() {
 
   // Agent status tracking
   const [agents, setAgents] = useState([]);
+  const [isThinking, setIsThinking] = useState(false);
   const agentTimeouts = useRef({});
 
   // Personalization state
@@ -200,13 +201,31 @@ function App() {
         const message = JSON.parse(event.data);
         console.log('Received update:', message);
 
+        // Handle workflow start
+        if (message.type === 'workflow_start') {
+          setIsThinking(true);
+          setAgents([]); // Clear previous agents
+          return;
+        }
+
+        // Handle workflow completion
+        if (message.type === 'consensus') {
+          setIsThinking(false);
+          return;
+        }
+
         // Handle agent status updates
         if (message.type === 'agent_status') {
           const agentId = message.ingredient
             ? `${message.agent_type}_${message.ingredient}`
             : message.agent_type;
 
+          console.log('Agent status update:', message.agent_type, message.status, agentId);
+
           if (message.status === 'running') {
+            // Stop thinking when first agent starts running
+            setIsThinking(false);
+
             // Add or update agent
             setAgents(prev => {
               const existing = prev.find(a => a.id === agentId);
@@ -217,16 +236,21 @@ function App() {
             });
           } else if (message.status === 'done') {
             // Update agent to done status
-            setAgents(prev => prev.map(a => a.id === agentId ? { ...message, id: agentId } : a));
+            setAgents(prev => {
+              const updated = prev.map(a => a.id === agentId ? { ...message, id: agentId } : a);
+              console.log('Updated agents with done status:', updated);
+              return updated;
+            });
 
-            // Schedule removal after 2 seconds
+            // Schedule removal after 3 seconds (grace period)
             if (agentTimeouts.current[agentId]) {
               clearTimeout(agentTimeouts.current[agentId]);
             }
             agentTimeouts.current[agentId] = setTimeout(() => {
+              console.log('Removing agent:', agentId);
               setAgents(prev => prev.filter(a => a.id !== agentId));
               delete agentTimeouts.current[agentId];
-            }, 2000);
+            }, 3000);
           }
           return;
         }
@@ -346,8 +370,11 @@ function App() {
         {activeTab === 'tracker' && (
           <div className="content-grid">
             <div className="left-column">
-              <MealInput onSubmit={handleMealSubmit} />
-              {agents.length > 0 && <AgentStatus agents={agents} />}
+              <MealInput
+                onSubmit={handleMealSubmit}
+                agents={<AgentStatus agents={agents} isThinking={isThinking} />}
+                isThinking={isThinking}
+              />
               <MealsList meals={meals} onDeleteMeal={handleDeleteMeal} />
             </div>
 

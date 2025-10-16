@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { UtensilsIcon, SparklesIcon } from '../ui/Icons';
 import './MealInput.css';
 
-const MealInput = ({ onSubmit }) => {
+const MealInput = ({ onSubmit, agents, isThinking }) => {
   const [mealText, setMealText] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
@@ -45,6 +45,14 @@ const MealInput = ({ onSubmit }) => {
                 />
               </div>
             </div>
+
+            {/* Agent Status Display - injected from parent */}
+            {(isThinking || agents) && (
+              <div className="agent-status-section">
+                {agents}
+              </div>
+            )}
+
             <div className="input-footer">
               <p className="footer-text">
                 AI will analyze nutritional content automatically

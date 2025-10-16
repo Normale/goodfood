@@ -516,6 +516,14 @@ Provide your response as valid JSON only.""",
                 "stage": "preprocessing",
             })
 
+            # Show preprocessing agent as running immediately
+            await websocket.send_json({
+                "type": "agent_status",
+                "agent_type": "preprocessing",
+                "status": "running",
+                "message": "Analyzing ingredients...",
+            })
+
         # Track current stage for iteration simulation
         current_stage = 0
         total_stages = 4  # preprocessing, coordinator, merge, interaction_analysis
@@ -531,15 +539,17 @@ Provide your response as valid JSON only.""",
                     cooking_process = node_state.get("cooking_process", {})
 
                     if websocket:
-                        # Send agent status: preprocessing start
+                        import asyncio
+
+                        # Mark preprocessing as done
                         await websocket.send_json({
                             "type": "agent_status",
                             "agent_type": "preprocessing",
-                            "status": "running",
-                            "message": f"Analyzing ingredients ({len(ingredients)} found)...",
+                            "status": "done",
+                            "message": f"Found {len(ingredients)} ingredients",
                         })
 
-                        # Send iteration event (similar to original workflow)
+                        # Send iteration event
                         await websocket.send_json({
                             "type": "iteration",
                             "iteration": current_stage,
@@ -553,26 +563,12 @@ Provide your response as valid JSON only.""",
                             "message": f"Analyzing ingredients ({len(ingredients)} found)...",
                         })
 
-                        # Mark preprocessing as done
-                        await websocket.send_json({
-                            "type": "agent_status",
-                            "agent_type": "preprocessing",
-                            "status": "done",
-                            "message": f"Found {len(ingredients)} ingredients",
-                        })
-
-                # After coordinator (parallel execution)
-                elif node_name == "coordinator":
-                    ingredient_results = node_state.get("ingredient_results", {})
-                    ingredients = state.get("ingredients", [])
-
-                    if websocket:
-                        # Send agent status for each ingredient (estimator-validator)
+                        # Now predictively show what's coming next: estimator-validator loops for each ingredient
                         for ing in ingredients:
                             ing_name = ing["name"]
                             ing_amount = ing["amount"]
 
-                            # Send estimator status
+                            # Show estimator status as "running"
                             await websocket.send_json({
                                 "type": "agent_status",
                                 "agent_type": "estimator",
@@ -581,12 +577,43 @@ Provide your response as valid JSON only.""",
                                 "ingredient": ing_name,
                             })
 
-                            # Immediately mark as done (since coordinator already completed)
+                            # Show validator status as "running"
+                            await websocket.send_json({
+                                "type": "agent_status",
+                                "agent_type": "validator",
+                                "status": "running",
+                                "message": f"Validating ({ing_name}: {ing_amount})",
+                                "ingredient": ing_name,
+                            })
+
+                # After coordinator (parallel execution)
+                elif node_name == "coordinator":
+                    ingredient_results = node_state.get("ingredient_results", {})
+                    ingredients = state.get("ingredients", [])
+
+                    if websocket:
+                        import asyncio
+
+                        # Mark all estimators and validators as done
+                        for ing in ingredients:
+                            ing_name = ing["name"]
+                            ing_amount = ing["amount"]
+
+                            # Mark estimator as done
                             await websocket.send_json({
                                 "type": "agent_status",
                                 "agent_type": "estimator",
                                 "status": "done",
-                                "message": f"Done ({ing_name}: {ing_amount})",
+                                "message": f"Estimated ({ing_name}: {ing_amount})",
+                                "ingredient": ing_name,
+                            })
+
+                            # Mark validator as done
+                            await websocket.send_json({
+                                "type": "agent_status",
+                                "agent_type": "validator",
+                                "status": "done",
+                                "message": f"Validated ({ing_name}: {ing_amount})",
                                 "ingredient": ing_name,
                             })
 
@@ -602,6 +629,14 @@ Provide your response as valid JSON only.""",
                             "type": "status",
                             "status": "estimating",
                             "message": f"Estimating nutrients in parallel ({len(ingredient_results)} ingredients)...",
+                        })
+
+                        # Predictively show next stage: detailed analyzer
+                        await websocket.send_json({
+                            "type": "agent_status",
+                            "agent_type": "detailed_analyzer",
+                            "status": "running",
+                            "message": "Assessing the potential interactions",
                         })
 
                 # After merge
@@ -635,28 +670,14 @@ Provide your response as valid JSON only.""",
                             "full_count": len(estimates_sum),
                         })
 
+                        # No agent status updates here - detailed_analyzer is already running from coordinator
+
                 # After interaction analysis
                 elif node_name == "interaction_analysis":
                     final_estimates = node_state.get("final_estimates", {})
 
                     if websocket:
-                        # Send agent status: detailed nutrient analyzer
-                        await websocket.send_json({
-                            "type": "agent_status",
-                            "agent_type": "detailed_analyzer",
-                            "status": "running",
-                            "message": "Assessing the potential interactions",
-                        })
-
-                        # Send agent status: final estimates
-                        await websocket.send_json({
-                            "type": "agent_status",
-                            "agent_type": "final_estimates",
-                            "status": "running",
-                            "message": "Calculating final nutrient values",
-                        })
-
-                        # Mark both as done
+                        # Mark detailed analyzer as done
                         await websocket.send_json({
                             "type": "agent_status",
                             "agent_type": "detailed_analyzer",
@@ -664,6 +685,15 @@ Provide your response as valid JSON only.""",
                             "message": "Interactions assessed",
                         })
 
+                        # Show final estimates running
+                        await websocket.send_json({
+                            "type": "agent_status",
+                            "agent_type": "final_estimates",
+                            "status": "running",
+                            "message": "Calculating final nutrient values",
+                        })
+
+                        # Mark final estimates as done
                         await websocket.send_json({
                             "type": "agent_status",
                             "agent_type": "final_estimates",
