@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from workflows.nutrition_langgraph import NutritionEstimationWorkflow
 from workflows.parallel_nutrition_workflow import ParallelNutritionWorkflow
+from workflows.gap_analysis_workflow import GapAnalysisWorkflow
 
 app = FastAPI(title="GoodFood Nutrition API")
 
@@ -30,6 +31,9 @@ app.add_middleware(
 # Store active WebSocket connections
 active_connections: List[WebSocket] = []
 
+# Store today's meals in memory (in production, use a database)
+todays_meals: List[Dict] = []
+
 
 async def broadcast_update(component: str, data: dict):
     """Broadcast update to all connected clients."""
@@ -42,65 +46,23 @@ async def broadcast_update(component: str, data: dict):
             print(f"Error sending to client: {e}")
 
 
-def get_initial_meals() -> List[dict]:
-    """Get initial meals list."""
-    return [
-        {
-            "id": 1,
-            "time": "8:30 AM",
-            "description": "Oatmeal with berries, banana, and almond butter",
-            "calories": 420,
-            "protein": 12,
-            "carbs": 68,
-            "fat": 14,
-        },
-        {
-            "id": 2,
-            "time": "12:45 PM",
-            "description": "Grilled chicken salad with quinoa and avocado",
-            "calories": 580,
-            "protein": 42,
-            "carbs": 45,
-            "fat": 22,
-        },
-        {
-            "id": 3,
-            "time": "3:15 PM",
-            "description": "Greek yogurt with honey and walnuts",
-            "calories": 280,
-            "protein": 15,
-            "carbs": 32,
-            "fat": 11,
-        },
-    ]
+def get_todays_meals() -> List[dict]:
+    """Get today's meals list."""
+    return todays_meals
 
 
-def get_nutrient_gaps() -> dict:
-    """Get nutrient gaps data."""
-    return {
-        "vitamin_d": 8,
-        "fiber": 15,
-        "iron": 12,
-        "calcium": 500,
-        "vitamin_b12": 1.5,
-        "omega_3": 0.8,
-    }
+async def run_gap_analysis(websocket=None) -> Dict:
+    """Run gap analysis workflow on today's meals.
 
+    Args:
+        websocket: Optional WebSocket for streaming progress
 
-def get_recommended_meal() -> dict:
-    """Get recommended next meal."""
-    return {
-        "meal": "Salmon with quinoa and roasted vegetables",
-        "reasoning": "High in protein and omega-3s, adds fiber from quinoa and veggies",
-        "nutrients": {
-            "calories": 520,
-            "protein": 38,
-            "carbs": 45,
-            "fat": 18,
-            "omega_3": 2.5,
-            "vitamin_d": 12,
-        },
-    }
+    Returns:
+        Gap analysis results
+    """
+    workflow = GapAnalysisWorkflow()
+    result = await workflow.analyze_gaps(todays_meals, websocket)
+    return result
 
 
 @app.websocket("/ws")
@@ -113,9 +75,41 @@ async def websocket_endpoint(websocket: WebSocket):
 
     try:
         # Send initial data to newly connected client
-        await websocket.send_json({"component": "todaysMeals", "data": get_initial_meals()})
-        await websocket.send_json({"component": "nutrientGaps", "data": get_nutrient_gaps()})
-        await websocket.send_json({"component": "recommendedMeal", "data": get_recommended_meal()})
+        await websocket.send_json({"component": "todaysMeals", "data": get_todays_meals()})
+
+        # Only run gap analysis if there are meals
+        if todays_meals:
+            gap_analysis_result = await run_gap_analysis(websocket)
+
+            # Send gap analysis results - send the full gap objects, not just current values
+            top_gaps = gap_analysis_result.get("top_gaps", [])
+            await websocket.send_json({"component": "nutrientGaps", "data": top_gaps})
+
+            # Send meal suggestions (first one for NextMealSuggestion component)
+            meal_suggestions = gap_analysis_result.get("meal_suggestions", [])
+            if meal_suggestions:
+                await websocket.send_json({
+                    "component": "recommendedMeal",
+                    "data": meal_suggestions[0]
+                })
+            else:
+                await websocket.send_json({
+                    "component": "recommendedMeal",
+                    "data": {
+                        "meal": "Add your first meal to get personalized suggestions",
+                        "reasoning": "Track meals to receive nutrition guidance"
+                    }
+                })
+        else:
+            # No meals yet
+            await websocket.send_json({"component": "nutrientGaps", "data": []})
+            await websocket.send_json({
+                "component": "recommendedMeal",
+                "data": {
+                    "meal": "Start by adding your first meal",
+                    "reasoning": "Track meals to get personalized nutrition insights"
+                }
+            })
 
         # Listen for messages from client
         while True:
@@ -142,14 +136,29 @@ async def websocket_endpoint(websocket: WebSocket):
                     "detailed_nutrients": result.get("estimates", {}),
                 }
 
-                # Get current meals and add new one
-                current_meals = get_initial_meals()
-                current_meals.append(new_meal)
+                # Add to today's meals
+                todays_meals.append(new_meal)
 
                 # Broadcast updated meals list
-                await broadcast_update("todaysMeals", current_meals)
-                await broadcast_update("nutrientGaps", get_nutrient_gaps())
-                await broadcast_update("recommendedMeal", get_recommended_meal())
+                await broadcast_update("todaysMeals", get_todays_meals())
+
+                # Run gap analysis workflow with updated meals
+                print("Running gap analysis...")
+                gap_analysis_result = await run_gap_analysis(websocket)
+
+                # Broadcast gap analysis results - send full gap objects
+                top_gaps = gap_analysis_result.get("top_gaps", [])
+                await broadcast_update("nutrientGaps", top_gaps)
+
+                # Broadcast meal suggestion (first one)
+                meal_suggestions = gap_analysis_result.get("meal_suggestions", [])
+                if meal_suggestions:
+                    await broadcast_update("recommendedMeal", meal_suggestions[0])
+                else:
+                    await broadcast_update("recommendedMeal", {
+                        "meal": "Balanced meal with protein and vegetables",
+                        "reasoning": "Helps meet daily nutritional goals"
+                    })
 
                 print(f"Broadcasted updates to {len(active_connections)} clients")
 

@@ -1,7 +1,10 @@
 import { ActivityIcon, AlertCircleIcon, CheckCircleIcon, TrendingUpIcon } from '../ui/Icons';
+import { getNutrientDisplayName } from '../../utils/nutrientDisplay';
 import './NutrientAnalysis.css';
 
 const NutrientItem = ({ nutrient, compact = false }) => {
+  // Convert canonical key to display name
+  const displayName = getNutrientDisplayName(nutrient.name);
   const statusIcons = {
     deficient: <AlertCircleIcon />,
     adequate: <CheckCircleIcon />,
@@ -19,14 +22,14 @@ const NutrientItem = ({ nutrient, compact = false }) => {
           <div className="nutrient-info">
             {!compact && (
               <div className="nutrient-header">
-                <h4 className="nutrient-name">{nutrient.name}</h4>
+                <h4 className="nutrient-name">{displayName}</h4>
                 <span className={`nutrient-badge ${nutrient.status}`}>
                   {nutrient.status.charAt(0).toUpperCase() + nutrient.status.slice(1)}
                 </span>
               </div>
             )}
             {compact && (
-              <h4 className="nutrient-name compact">{nutrient.name}</h4>
+              <h4 className="nutrient-name compact">{displayName}</h4>
             )}
             <p className={`nutrient-note ${compact ? 'compact' : ''}`}>
               {nutrient.note}

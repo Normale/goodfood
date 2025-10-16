@@ -1,7 +1,12 @@
-"""Nutrient definitions and categories for the GoodFood system."""
+"""Nutrient definitions - uses canonical keys from nutrition_goals.
+
+IMPORTANT: Import NUTRIENT_KEYS from nutrition_goals as the single source of truth.
+"""
 
 from enum import Enum
 from typing import Dict, List
+from config.nutrition_goals import NUTRIENT_KEYS
+
 
 class NutrientCategory(str, Enum):
     """Categories of nutrients tracked by the system."""
@@ -24,88 +29,78 @@ class NutrientUnit(str, Enum):
 
 
 # Complete nutrient list with categories and units
+# KEYS ARE CANONICAL - defined in nutrition_goals.NUTRIENT_KEYS
 NUTRIENTS: Dict[str, Dict[str, str]] = {
     # Macronutrients
-    "Carbohydrates": {"category": NutrientCategory.MACRONUTRIENT, "unit": NutrientUnit.GRAM},
-    "Protein": {"category": NutrientCategory.MACRONUTRIENT, "unit": NutrientUnit.GRAM},
-    "Total Fats": {"category": NutrientCategory.MACRONUTRIENT, "unit": NutrientUnit.GRAM},
-    "Alpha-linolenic acid": {
-        "category": NutrientCategory.MACRONUTRIENT,
-        "unit": NutrientUnit.GRAM,
-    },
-    "Linoleic acid": {"category": NutrientCategory.MACRONUTRIENT, "unit": NutrientUnit.GRAM},
-    "EPA+DHA": {"category": NutrientCategory.MACRONUTRIENT, "unit": NutrientUnit.MILLIGRAM},
-    "Soluble Fiber": {"category": NutrientCategory.MACRONUTRIENT, "unit": NutrientUnit.GRAM},
-    "Insoluble Fiber": {"category": NutrientCategory.MACRONUTRIENT, "unit": NutrientUnit.GRAM},
-    "Water": {"category": NutrientCategory.MACRONUTRIENT, "unit": NutrientUnit.MILLILITER},
+    "carbohydrates": {"category": NutrientCategory.MACRONUTRIENT, "unit": NutrientUnit.GRAM},
+    "protein": {"category": NutrientCategory.MACRONUTRIENT, "unit": NutrientUnit.GRAM},
+    "total-fats": {"category": NutrientCategory.MACRONUTRIENT, "unit": NutrientUnit.GRAM},
+    "alpha-linolenic-acid": {"category": NutrientCategory.MACRONUTRIENT, "unit": NutrientUnit.GRAM},
+    "linoleic-acid": {"category": NutrientCategory.MACRONUTRIENT, "unit": NutrientUnit.GRAM},
+    "epa-dha": {"category": NutrientCategory.MACRONUTRIENT, "unit": NutrientUnit.MILLIGRAM},
+    "fiber": {"category": NutrientCategory.MACRONUTRIENT, "unit": NutrientUnit.GRAM},
+    "water": {"category": NutrientCategory.MACRONUTRIENT, "unit": NutrientUnit.MILLILITER},
+
     # Vitamins
-    "Vitamin C": {"category": NutrientCategory.VITAMIN, "unit": NutrientUnit.MILLIGRAM},
-    "Vitamin B1 Thiamine": {"category": NutrientCategory.VITAMIN, "unit": NutrientUnit.MILLIGRAM},
-    "Vitamin B2 Riboflavin": {
-        "category": NutrientCategory.VITAMIN,
-        "unit": NutrientUnit.MILLIGRAM,
-    },
-    "Vitamin B3 Niacin": {"category": NutrientCategory.VITAMIN, "unit": NutrientUnit.MILLIGRAM},
-    "Vitamin B5 Pantothenic acid": {
-        "category": NutrientCategory.VITAMIN,
-        "unit": NutrientUnit.MILLIGRAM,
-    },
-    "Vitamin B6 Pyridoxine": {
-        "category": NutrientCategory.VITAMIN,
-        "unit": NutrientUnit.MILLIGRAM,
-    },
-    "Vitamin B7 Biotin": {"category": NutrientCategory.VITAMIN, "unit": NutrientUnit.MICROGRAM},
-    "Vitamin B9 Folate": {"category": NutrientCategory.VITAMIN, "unit": NutrientUnit.MICROGRAM},
-    "Vitamin B12": {"category": NutrientCategory.VITAMIN, "unit": NutrientUnit.MICROGRAM},
-    "Vitamin A": {"category": NutrientCategory.VITAMIN, "unit": NutrientUnit.MICROGRAM},
-    "Vitamin D": {"category": NutrientCategory.VITAMIN, "unit": NutrientUnit.MICROGRAM},
-    "Vitamin E": {"category": NutrientCategory.VITAMIN, "unit": NutrientUnit.MILLIGRAM},
-    "Vitamin K": {"category": NutrientCategory.VITAMIN, "unit": NutrientUnit.MICROGRAM},
+    "vitamin-c": {"category": NutrientCategory.VITAMIN, "unit": NutrientUnit.MILLIGRAM},
+    "thiamine": {"category": NutrientCategory.VITAMIN, "unit": NutrientUnit.MILLIGRAM},
+    "riboflavin": {"category": NutrientCategory.VITAMIN, "unit": NutrientUnit.MILLIGRAM},
+    "niacin": {"category": NutrientCategory.VITAMIN, "unit": NutrientUnit.MILLIGRAM},
+    "pantothenic-acid": {"category": NutrientCategory.VITAMIN, "unit": NutrientUnit.MILLIGRAM},
+    "pyridoxine": {"category": NutrientCategory.VITAMIN, "unit": NutrientUnit.MILLIGRAM},
+    "biotin": {"category": NutrientCategory.VITAMIN, "unit": NutrientUnit.MICROGRAM},
+    "folate": {"category": NutrientCategory.VITAMIN, "unit": NutrientUnit.MICROGRAM},
+    "vitamin-b12": {"category": NutrientCategory.VITAMIN, "unit": NutrientUnit.MICROGRAM},
+    "vitamin-a": {"category": NutrientCategory.VITAMIN, "unit": NutrientUnit.MICROGRAM},
+    "vitamin-d": {"category": NutrientCategory.VITAMIN, "unit": NutrientUnit.MICROGRAM},
+    "vitamin-e": {"category": NutrientCategory.VITAMIN, "unit": NutrientUnit.MILLIGRAM},
+    "vitamin-k": {"category": NutrientCategory.VITAMIN, "unit": NutrientUnit.MICROGRAM},
+
     # Minerals
-    "Calcium": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MILLIGRAM},
-    "Phosphorus": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MILLIGRAM},
-    "Magnesium": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MILLIGRAM},
-    "Potassium": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MILLIGRAM},
-    "Sodium": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MILLIGRAM},
-    "Chloride": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MILLIGRAM},
-    "Iron": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MILLIGRAM},
-    "Zinc": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MILLIGRAM},
-    "Copper": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MICROGRAM},
-    "Selenium": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MICROGRAM},
-    "Manganese": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MILLIGRAM},
-    "Iodine": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MICROGRAM},
-    "Chromium": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MICROGRAM},
-    "Molybdenum": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MICROGRAM},
-    # Essential Amino Acids
-    "Leucine": {"category": NutrientCategory.AMINO_ACID, "unit": NutrientUnit.GRAM},
-    "Lysine": {"category": NutrientCategory.AMINO_ACID, "unit": NutrientUnit.GRAM},
-    "Valine": {"category": NutrientCategory.AMINO_ACID, "unit": NutrientUnit.GRAM},
-    "Isoleucine": {"category": NutrientCategory.AMINO_ACID, "unit": NutrientUnit.GRAM},
-    "Threonine": {"category": NutrientCategory.AMINO_ACID, "unit": NutrientUnit.GRAM},
-    "Methionine": {"category": NutrientCategory.AMINO_ACID, "unit": NutrientUnit.GRAM},
-    "Phenylalanine": {"category": NutrientCategory.AMINO_ACID, "unit": NutrientUnit.GRAM},
-    "Histidine": {"category": NutrientCategory.AMINO_ACID, "unit": NutrientUnit.GRAM},
-    "Tryptophan": {"category": NutrientCategory.AMINO_ACID, "unit": NutrientUnit.GRAM},
+    "calcium": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MILLIGRAM},
+    "phosphorus": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MILLIGRAM},
+    "magnesium": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MILLIGRAM},
+    "potassium": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MILLIGRAM},
+    "sodium": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MILLIGRAM},
+    "chloride": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MILLIGRAM},
+    "iron": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MILLIGRAM},
+    "zinc": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MILLIGRAM},
+    "copper": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MICROGRAM},
+    "selenium": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MICROGRAM},
+    "manganese": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MILLIGRAM},
+    "iodine": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MICROGRAM},
+    "chromium": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MICROGRAM},
+    "molybdenum": {"category": NutrientCategory.MINERAL, "unit": NutrientUnit.MICROGRAM},
+
+    # Amino Acids
+    "leucine": {"category": NutrientCategory.AMINO_ACID, "unit": NutrientUnit.GRAM},
+    "lysine": {"category": NutrientCategory.AMINO_ACID, "unit": NutrientUnit.GRAM},
+    "valine": {"category": NutrientCategory.AMINO_ACID, "unit": NutrientUnit.GRAM},
+    "isoleucine": {"category": NutrientCategory.AMINO_ACID, "unit": NutrientUnit.GRAM},
+    "threonine": {"category": NutrientCategory.AMINO_ACID, "unit": NutrientUnit.GRAM},
+    "methionine": {"category": NutrientCategory.AMINO_ACID, "unit": NutrientUnit.GRAM},
+    "phenylalanine": {"category": NutrientCategory.AMINO_ACID, "unit": NutrientUnit.GRAM},
+    "histidine": {"category": NutrientCategory.AMINO_ACID, "unit": NutrientUnit.GRAM},
+    "tryptophan": {"category": NutrientCategory.AMINO_ACID, "unit": NutrientUnit.GRAM},
+
     # Beneficial Compounds
-    "Choline": {"category": NutrientCategory.BENEFICIAL, "unit": NutrientUnit.MILLIGRAM},
-    "Taurine": {"category": NutrientCategory.BENEFICIAL, "unit": NutrientUnit.MILLIGRAM},
-    "CoQ10": {"category": NutrientCategory.BENEFICIAL, "unit": NutrientUnit.MILLIGRAM},
-    "Alpha-lipoic acid": {"category": NutrientCategory.BENEFICIAL, "unit": NutrientUnit.MILLIGRAM},
-    "Beta-glucan": {"category": NutrientCategory.BENEFICIAL, "unit": NutrientUnit.GRAM},
-    "Resistant starch": {"category": NutrientCategory.BENEFICIAL, "unit": NutrientUnit.GRAM},
+    "choline": {"category": NutrientCategory.BENEFICIAL, "unit": NutrientUnit.MILLIGRAM},
+    "taurine": {"category": NutrientCategory.BENEFICIAL, "unit": NutrientUnit.MILLIGRAM},
+    "coenzyme-q10": {"category": NutrientCategory.BENEFICIAL, "unit": NutrientUnit.MILLIGRAM},
+    "alpha-lipoic-acid": {"category": NutrientCategory.BENEFICIAL, "unit": NutrientUnit.MILLIGRAM},
+    "beta-glucan": {"category": NutrientCategory.BENEFICIAL, "unit": NutrientUnit.GRAM},
+    "resistant-starch": {"category": NutrientCategory.BENEFICIAL, "unit": NutrientUnit.GRAM},
+
     # Phytonutrients
-    "Beta-carotene": {"category": NutrientCategory.PHYTONUTRIENT, "unit": NutrientUnit.MILLIGRAM},
-    "Lycopene": {"category": NutrientCategory.PHYTONUTRIENT, "unit": NutrientUnit.MILLIGRAM},
-    "Lutein": {"category": NutrientCategory.PHYTONUTRIENT, "unit": NutrientUnit.MILLIGRAM},
-    "Zeaxanthin": {"category": NutrientCategory.PHYTONUTRIENT, "unit": NutrientUnit.MILLIGRAM},
-    "Total polyphenols": {
-        "category": NutrientCategory.PHYTONUTRIENT,
-        "unit": NutrientUnit.MILLIGRAM,
-    },
-    "Quercetin": {"category": NutrientCategory.PHYTONUTRIENT, "unit": NutrientUnit.MILLIGRAM},
-    "Sulforaphane": {"category": NutrientCategory.PHYTONUTRIENT, "unit": NutrientUnit.MILLIGRAM},
-    "Allicin": {"category": NutrientCategory.PHYTONUTRIENT, "unit": NutrientUnit.MILLIGRAM},
-    "Curcumin": {"category": NutrientCategory.PHYTONUTRIENT, "unit": NutrientUnit.MILLIGRAM},
+    "beta-carotene": {"category": NutrientCategory.PHYTONUTRIENT, "unit": NutrientUnit.MILLIGRAM},
+    "lycopene": {"category": NutrientCategory.PHYTONUTRIENT, "unit": NutrientUnit.MILLIGRAM},
+    "lutein": {"category": NutrientCategory.PHYTONUTRIENT, "unit": NutrientUnit.MILLIGRAM},
+    "zeaxanthin": {"category": NutrientCategory.PHYTONUTRIENT, "unit": NutrientUnit.MILLIGRAM},
+    "polyphenols": {"category": NutrientCategory.PHYTONUTRIENT, "unit": NutrientUnit.MILLIGRAM},
+    "quercetin": {"category": NutrientCategory.PHYTONUTRIENT, "unit": NutrientUnit.MILLIGRAM},
+    "sulforaphane": {"category": NutrientCategory.PHYTONUTRIENT, "unit": NutrientUnit.MILLIGRAM},
+    "allicin": {"category": NutrientCategory.PHYTONUTRIENT, "unit": NutrientUnit.MILLIGRAM},
+    "curcumin": {"category": NutrientCategory.PHYTONUTRIENT, "unit": NutrientUnit.MILLIGRAM},
 }
 
 
@@ -122,8 +117,11 @@ def get_nutrient_unit(nutrient_name: str) -> str:
 
 
 def get_formatted_nutrient_list() -> str:
-    """Get formatted nutrient list for LLM prompts."""
-    output = []
+    """Get formatted nutrient list for LLM prompts.
+
+    IMPORTANT: LLM MUST return these EXACT keys in the response.
+    """
+    output = ["\nIMPORTANT: Use these EXACT nutrient keys in your JSON response:\n"]
 
     for category in NutrientCategory:
         nutrients = get_nutrients_by_category(category)
@@ -131,6 +129,6 @@ def get_formatted_nutrient_list() -> str:
             output.append(f"\n### {category.value.upper().replace('_', ' ')}")
             for nutrient in nutrients:
                 unit = get_nutrient_unit(nutrient)
-                output.append(f"- {nutrient} ({unit})")
+                output.append(f'- "{nutrient}": value in {unit}')
 
     return "\n".join(output)

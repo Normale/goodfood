@@ -53,6 +53,7 @@ class ParallelNutritionState(TypedDict, total=False):
     estimates_sum: Dict[str, float]  # Summed nutrients from all ingredients
 
     # Final analysis outputs
+    detailed_nutrient_analysis: str  # Natural language analysis of every nutrient
     final_estimates: Dict[str, float]  # After accounting for interactions and cooking process
     interaction_reasoning: str
     process_impact_reasoning: str
@@ -264,85 +265,15 @@ class ParallelNutritionWorkflow:
         return state
 
     def _interaction_analysis_node(self, state: ParallelNutritionState) -> ParallelNutritionState:
-        """Analyze nutrient interactions and cooking process impact.
+        """Analyze nutrient interactions and cooking process impact using two-agent approach.
 
-        This node uses an LLM to:
-        1. Identify which nutrients have interactions with other ingredients
-        2. Account for cooking process impact (e.g., vitamin loss from baking)
-        3. Produce final adjusted estimates
+        Agent 1: Detailed natural language analysis of every nutrient
+        Agent 2: Structured final estimates based on the analysis
         """
         from langchain_anthropic import ChatAnthropic
         from langchain_core.prompts import PromptTemplate
-        from langchain_core.output_parsers import JsonOutputParser
+        from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
         from pydantic import BaseModel, Field
-
-        class InteractionAnalysisResult(BaseModel):
-            """Result of interaction and cooking process analysis."""
-            final_estimates: Dict[str, float] = Field(description="Final adjusted nutrient estimates")
-            interaction_reasoning: str = Field(description="Explanation of nutrient interactions")
-            process_impact_reasoning: str = Field(description="Explanation of cooking process impact")
-
-        llm = ChatAnthropic(
-            model=settings.estimator_model,
-            anthropic_api_key=settings.anthropic_api_key,
-            temperature=0.3,
-            max_tokens=2048,  # Limit for chain-of-thought reasoning + final estimates
-        )
-
-        parser = JsonOutputParser(pydantic_object=InteractionAnalysisResult)
-
-        prompt = PromptTemplate(
-            template="""You are a nutritional biochemist expert. Analyze nutrient interactions and cooking process impacts.
-
-Meal description: {description}
-
-Ingredients:
-{ingredients_list}
-
-Cooking process:
-Method: {cooking_method}
-Temperature: {cooking_temp}
-Duration: {cooking_duration}
-Known impacts: {cooking_impacts}
-
-Current nutrient estimates (sum of all ingredients):
-{estimates_json}
-
-Your task (use chain of thought reasoning):
-1. Identify nutrient interactions between ingredients:
-   - Vitamin absorption enhanced/inhibited by other nutrients
-   - Mineral bioavailability changes
-   - Protein/amino acid combinations
-   - Fat-soluble vitamin absorption
-
-2. Account for cooking process impacts:
-   - Heat-sensitive vitamins (C, B vitamins) - losses
-   - Fat content changes (absorbed oil, rendered fat)
-   - Protein denaturation effects
-   - Mineral retention/loss
-
-3. Calculate final adjusted estimates for ALL nutrients
-
-4. Explain your reasoning step by step
-
-{format_instructions}
-
-Provide your response as valid JSON only.""",
-            input_variables=[
-                "description",
-                "ingredients_list",
-                "cooking_method",
-                "cooking_temp",
-                "cooking_duration",
-                "cooking_impacts",
-                "estimates_json"
-            ],
-            partial_variables={
-                "format_instructions": parser.get_format_instructions(),
-            },
-        )
-
-        chain = prompt | llm | parser
 
         # Prepare inputs
         ingredients = state.get("ingredients", [])
@@ -357,45 +288,199 @@ Provide your response as valid JSON only.""",
         import json
         estimates_json = json.dumps(estimates_sum, indent=2)
 
+        # Create LLM for both agents
+        llm = ChatAnthropic(
+            model=settings.estimator_model,
+            anthropic_api_key=settings.anthropic_api_key,
+            temperature=0.2,  # Low temperature for scientific accuracy
+            max_tokens=8000,  # Higher for detailed analysis
+        )
+
+        # ============================================================
+        # AGENT 1: Detailed Natural Language Analysis
+        # ============================================================
+
+        analysis_prompt = PromptTemplate(
+            template="""You are a nutritional biochemist expert. Analyze how cooking process and ingredient interactions affect EVERY SINGLE NUTRIENT in this meal.
+
+Meal description: {description}
+
+Ingredients:
+{ingredients_list}
+
+Cooking process:
+Method: {cooking_method}
+Temperature: {cooking_temp}
+Duration: {cooking_duration}
+Known impacts: {cooking_impacts}
+
+Current nutrient estimates (sum of raw ingredients):
+{estimates_json}
+
+YOUR TASK: Go through EVERY nutrient listed above, one by one, and explain in natural language how it will be affected:
+
+For EACH nutrient, write a clear statement following these patterns:
+
+1. If nutrient stays the same:
+   "Nutrient X - Does not change during cooking"
+
+2. If nutrient increases:
+   "Nutrient X - Increases by approximately Y% because [reason]. For example, [specific mechanism]"
+
+3. If nutrient decreases:
+   "Nutrient X - Decreases by approximately Y% due to [specific reason]. In the current process of {cooking_method} at {cooking_temp} for {cooking_duration}, [explain mechanism]"
+
+4. If nutrient has complex interactions:
+   "Nutrient X - Initially Y, but bioavailability changes by Z% due to [interaction with other nutrients/cooking]. Final available amount is approximately [calculation]"
+
+IMPORTANT RULES:
+- Go through ALL nutrients systematically (macronutrients, vitamins, minerals, etc.)
+- Be specific about percentages (e.g., "15-20%" not "some")
+- Explain WHY each change happens (heat degradation, oxidation, protein binding, etc.)
+- Consider the specific cooking method, temperature, and duration
+- Account for nutrient interactions (e.g., vitamin C enhancing iron absorption, fat helping vitamin absorption)
+
+Examples of GOOD analysis:
+- "Vitamin C - Decreases by approximately 25-30% due to heat degradation. In the current process of baking at 180°C for 20 minutes, ascorbic acid oxidizes and breaks down from thermal stress."
+- "Iron - Increases bioavailability by 15% because vitamin C present in the ingredients enhances non-heme iron absorption"
+- "Beta-Carotene - Does not change significantly, as this carotenoid is stable at moderate cooking temperatures"
+- "Protein - Does not change in quantity but denatures, which actually improves digestibility by 10-15%"
+- "Polyphenols - Decrease by approximately 20% during high temperature cooking. In the current process of frying at 180°C for 10 minutes, they oxidize and degrade due to prolonged heat exposure"
+
+Now provide your detailed analysis for EVERY nutrient:""",
+            input_variables=[
+                "description",
+                "ingredients_list",
+                "cooking_method",
+                "cooking_temp",
+                "cooking_duration",
+                "cooking_impacts",
+                "estimates_json"
+            ],
+        )
+
+        analysis_chain = analysis_prompt | llm | StrOutputParser()
+
         try:
-            # Format prompt for logging
-            prompt_inputs = {
+            # Prepare inputs
+            analysis_inputs = {
                 "description": state.get("description", ""),
                 "ingredients_list": ingredients_list,
                 "cooking_method": cooking_process.get("method", "unknown"),
                 "cooking_temp": cooking_process.get("temperature", "unknown"),
                 "cooking_duration": cooking_process.get("duration", "unknown"),
-                "cooking_impacts": ", ".join(cooking_process.get("nutrient_impact", [])),
+                "cooking_impacts": ", ".join(cooking_process.get("nutrient_impact", [])) if cooking_process.get("nutrient_impact") else "none specified",
                 "estimates_json": estimates_json,
             }
-            prompt_text = prompt.format(**prompt_inputs)
 
-            # Invoke the chain
-            result = chain.invoke(prompt_inputs)
+            # Get detailed natural language analysis
+            print("Running detailed nutrient analysis...")
+            detailed_analysis = analysis_chain.invoke(analysis_inputs)
 
-            # Log the interaction
+            # Store the detailed analysis
+            state["detailed_nutrient_analysis"] = detailed_analysis
+
+            # Log the detailed analysis
             logger = get_logger()
             logger.log_interaction(
-                agent_name="interaction_analysis",
-                prompt=prompt_text,
-                response=json.dumps(result, indent=2),
+                agent_name="detailed_nutrient_analyzer",
+                prompt=analysis_prompt.format(**analysis_inputs),
+                response=detailed_analysis,
                 metadata={
                     "description": state.get("description", ""),
                     "num_ingredients": len(ingredients),
-                    "cooking_method": cooking_process.get("method", "unknown")
+                    "cooking_method": cooking_process.get("method", "unknown"),
+                    "num_nutrients": len(estimates_sum)
                 }
             )
 
+            # ============================================================
+            # AGENT 2: Structured Final Estimates
+            # ============================================================
+
+            class FinalEstimatesResult(BaseModel):
+                """Final nutrient estimates based on detailed analysis."""
+                final_estimates: Dict[str, float] = Field(
+                    description="Final adjusted nutrient values after cooking and interactions"
+                )
+                summary: str = Field(
+                    description="Brief summary of major changes"
+                )
+
+            estimates_parser = JsonOutputParser(pydantic_object=FinalEstimatesResult)
+
+            estimates_prompt = PromptTemplate(
+                template="""You are a nutritional calculation expert. Based on the detailed analysis below, calculate the FINAL NUMERIC VALUES for all nutrients.
+
+Original nutrient values (from raw ingredients):
+{estimates_json}
+
+Detailed nutrient-by-nutrient analysis:
+{detailed_analysis}
+
+YOUR TASK: Convert the detailed analysis into precise final numeric values.
+
+INSTRUCTIONS:
+1. For each nutrient in the original estimates, apply the changes described in the analysis
+2. Calculate the final value based on percentage changes mentioned
+3. If analysis says "does not change", keep the original value
+4. If analysis mentions percentage decrease (e.g., "25-30%"), use the midpoint (27.5%) and calculate: original * (1 - 0.275)
+5. If analysis mentions percentage increase, calculate: original * (1 + percentage/100)
+6. Include ALL nutrients from the original estimates, even if they didn't change
+
+EXAMPLE:
+If original Vitamin C = 50mg and analysis says "Vitamin C - Decreases by 25-30%":
+Final Vitamin C = 50 * (1 - 0.275) = 36.25mg
+
+{format_instructions}
+
+Provide your response as valid JSON only.""",
+                input_variables=[
+                    "estimates_json",
+                    "detailed_analysis"
+                ],
+                partial_variables={
+                    "format_instructions": estimates_parser.get_format_instructions(),
+                },
+            )
+
+            estimates_chain = estimates_prompt | llm | estimates_parser
+
+            # Get final structured estimates
+            print("Calculating final nutrient values...")
+            estimates_inputs = {
+                "estimates_json": estimates_json,
+                "detailed_analysis": detailed_analysis,
+            }
+
+            result = estimates_chain.invoke(estimates_inputs)
+
+            # Log the final estimates calculation
+            logger.log_interaction(
+                agent_name="final_estimates_calculator",
+                prompt=estimates_prompt.format(**estimates_inputs),
+                response=json.dumps(result, indent=2),
+                metadata={
+                    "description": state.get("description", ""),
+                    "num_nutrients": len(result["final_estimates"])
+                }
+            )
+
+            # Store results in state (LLM should already use canonical keys)
             state["final_estimates"] = result["final_estimates"]
-            state["interaction_reasoning"] = result["interaction_reasoning"]
-            state["process_impact_reasoning"] = result["process_impact_reasoning"]
+            state["interaction_reasoning"] = detailed_analysis[:500] + "..." if len(detailed_analysis) > 500 else detailed_analysis
+            state["process_impact_reasoning"] = result["summary"]
 
         except Exception as e:
             print(f"Error during interaction analysis: {e}")
+            import traceback
+            traceback.print_exc()
+
             # Fall back to sum estimates
             state["final_estimates"] = state.get("estimates_sum", {})
             state["interaction_reasoning"] = f"Error occurred: {str(e)}"
             state["process_impact_reasoning"] = "No adjustments made due to error"
+            state["detailed_nutrient_analysis"] = "Error during analysis"
 
         return state
 
@@ -589,6 +674,7 @@ Provide your response as valid JSON only.""",
             "estimates_sum": state.get("estimates_sum", {}),
             "ingredient_results": state.get("ingredient_results", {}),
             "cooking_process": state.get("cooking_process", {}),
+            "detailed_nutrient_analysis": state.get("detailed_nutrient_analysis", ""),
             "interaction_reasoning": state.get("interaction_reasoning", ""),
             "process_impact_reasoning": state.get("process_impact_reasoning", ""),
         }
@@ -602,9 +688,9 @@ Provide your response as valid JSON only.""",
         Returns:
             Dict with calories, protein, carbs, fat
         """
-        protein = estimates.get("Protein", 0)
-        carbs = estimates.get("Carbohydrates", 0)
-        fat = estimates.get("Total Fats", 0)
+        protein = estimates.get("protein", 0)
+        carbs = estimates.get("carbohydrates", 0)
+        fat = estimates.get("total-fats", 0)
 
         # Calculate calories (4 cal/g protein, 4 cal/g carbs, 9 cal/g fat)
         calories = (protein * 4) + (carbs * 4) + (fat * 9)
