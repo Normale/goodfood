@@ -195,6 +195,7 @@ class ParallelNutritionWorkflow:
         subgraphs = {}
         for ing in ingredients:
             ing_name = ing["name"]
+            ing_amount = ing["amount"]
             # Create compiled subgraph for this ingredient
             subgraph = create_ingredient_subgraph(
                 self.ingredient_estimator,
@@ -203,7 +204,7 @@ class ParallelNutritionWorkflow:
             )
 
             # Wrap the subgraph invocation in a lambda that captures the ingredient data
-            def make_runner(ingredient_data):
+            def make_runner(ingredient_data, websocket_ref):
                 def runner(input_state):
                     # Initialize state for this ingredient's subgraph
                     ing_state: IngredientSubgraphState = {
@@ -219,7 +220,7 @@ class ParallelNutritionWorkflow:
                     return result
                 return runner
 
-            subgraphs[ing_name] = make_runner(ing)
+            subgraphs[ing_name] = make_runner(ing, state.get("_websocket"))
 
         # Run all subgraphs in parallel
         parallel = RunnableParallel(**subgraphs)
@@ -504,6 +505,7 @@ Provide your response as valid JSON only.""",
         state: ParallelNutritionState = {
             "description": description,
             "max_rounds": max_rounds_per_ingredient,
+            "_websocket": websocket,  # Pass websocket through state
         }
 
         # Notify start
@@ -529,6 +531,14 @@ Provide your response as valid JSON only.""",
                     cooking_process = node_state.get("cooking_process", {})
 
                     if websocket:
+                        # Send agent status: preprocessing start
+                        await websocket.send_json({
+                            "type": "agent_status",
+                            "agent_type": "preprocessing",
+                            "status": "running",
+                            "message": f"Analyzing ingredients ({len(ingredients)} found)...",
+                        })
+
                         # Send iteration event (similar to original workflow)
                         await websocket.send_json({
                             "type": "iteration",
@@ -543,11 +553,43 @@ Provide your response as valid JSON only.""",
                             "message": f"Analyzing ingredients ({len(ingredients)} found)...",
                         })
 
+                        # Mark preprocessing as done
+                        await websocket.send_json({
+                            "type": "agent_status",
+                            "agent_type": "preprocessing",
+                            "status": "done",
+                            "message": f"Found {len(ingredients)} ingredients",
+                        })
+
                 # After coordinator (parallel execution)
                 elif node_name == "coordinator":
                     ingredient_results = node_state.get("ingredient_results", {})
+                    ingredients = state.get("ingredients", [])
 
                     if websocket:
+                        # Send agent status for each ingredient (estimator-validator)
+                        for ing in ingredients:
+                            ing_name = ing["name"]
+                            ing_amount = ing["amount"]
+
+                            # Send estimator status
+                            await websocket.send_json({
+                                "type": "agent_status",
+                                "agent_type": "estimator",
+                                "status": "running",
+                                "message": f"Estimating ({ing_name}: {ing_amount})",
+                                "ingredient": ing_name,
+                            })
+
+                            # Immediately mark as done (since coordinator already completed)
+                            await websocket.send_json({
+                                "type": "agent_status",
+                                "agent_type": "estimator",
+                                "status": "done",
+                                "message": f"Done ({ing_name}: {ing_amount})",
+                                "ingredient": ing_name,
+                            })
+
                         # Send iteration event
                         await websocket.send_json({
                             "type": "iteration",
@@ -598,6 +640,37 @@ Provide your response as valid JSON only.""",
                     final_estimates = node_state.get("final_estimates", {})
 
                     if websocket:
+                        # Send agent status: detailed nutrient analyzer
+                        await websocket.send_json({
+                            "type": "agent_status",
+                            "agent_type": "detailed_analyzer",
+                            "status": "running",
+                            "message": "Assessing the potential interactions",
+                        })
+
+                        # Send agent status: final estimates
+                        await websocket.send_json({
+                            "type": "agent_status",
+                            "agent_type": "final_estimates",
+                            "status": "running",
+                            "message": "Calculating final nutrient values",
+                        })
+
+                        # Mark both as done
+                        await websocket.send_json({
+                            "type": "agent_status",
+                            "agent_type": "detailed_analyzer",
+                            "status": "done",
+                            "message": "Interactions assessed",
+                        })
+
+                        await websocket.send_json({
+                            "type": "agent_status",
+                            "agent_type": "final_estimates",
+                            "status": "done",
+                            "message": "Done",
+                        })
+
                         # Send iteration event
                         await websocket.send_json({
                             "type": "iteration",

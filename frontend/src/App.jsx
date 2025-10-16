@@ -7,6 +7,7 @@ import DailyGoals from './components/DailyGoals/DailyGoals';
 import TopNutrientGaps from './components/TopNutrientGaps/TopNutrientGaps';
 import NextMealSuggestion from './components/NextMealSuggestion/NextMealSuggestion';
 import NutrientAnalysis from './components/NutrientAnalysis/NutrientAnalysis';
+import AgentStatus from './components/AgentStatus/AgentStatus';
 import { DatabaseIcon, UserIcon, TargetIcon, ActivityIcon, CheckCircleIcon, SparklesIcon } from './components/ui/Icons';
 import './App.css';
 
@@ -108,6 +109,10 @@ function App() {
   const ws = useRef(null);
   const [isConnected, setIsConnected] = useState(false);
 
+  // Agent status tracking
+  const [agents, setAgents] = useState([]);
+  const agentTimeouts = useRef({});
+
   // Personalization state
   const [userProfile, setUserProfile] = useState({
     age: '',
@@ -195,6 +200,37 @@ function App() {
         const message = JSON.parse(event.data);
         console.log('Received update:', message);
 
+        // Handle agent status updates
+        if (message.type === 'agent_status') {
+          const agentId = message.ingredient
+            ? `${message.agent_type}_${message.ingredient}`
+            : message.agent_type;
+
+          if (message.status === 'running') {
+            // Add or update agent
+            setAgents(prev => {
+              const existing = prev.find(a => a.id === agentId);
+              if (existing) {
+                return prev.map(a => a.id === agentId ? { ...message, id: agentId } : a);
+              }
+              return [...prev, { ...message, id: agentId }];
+            });
+          } else if (message.status === 'done') {
+            // Update agent to done status
+            setAgents(prev => prev.map(a => a.id === agentId ? { ...message, id: agentId } : a));
+
+            // Schedule removal after 2 seconds
+            if (agentTimeouts.current[agentId]) {
+              clearTimeout(agentTimeouts.current[agentId]);
+            }
+            agentTimeouts.current[agentId] = setTimeout(() => {
+              setAgents(prev => prev.filter(a => a.id !== agentId));
+              delete agentTimeouts.current[agentId];
+            }, 2000);
+          }
+          return;
+        }
+
         // Route updates to appropriate components
         switch (message.component) {
           case 'todaysMeals':
@@ -246,6 +282,8 @@ function App() {
       if (ws.current) {
         ws.current.close();
       }
+      // Clear all agent timeouts
+      Object.values(agentTimeouts.current).forEach(timeout => clearTimeout(timeout));
     };
   }, []);
 
@@ -309,6 +347,7 @@ function App() {
           <div className="content-grid">
             <div className="left-column">
               <MealInput onSubmit={handleMealSubmit} />
+              {agents.length > 0 && <AgentStatus agents={agents} />}
               <MealsList meals={meals} onDeleteMeal={handleDeleteMeal} />
             </div>
 
