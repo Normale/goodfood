@@ -265,7 +265,7 @@ class ParallelNutritionWorkflow:
 
         return state
 
-    def _interaction_analysis_node(self, state: ParallelNutritionState) -> ParallelNutritionState:
+    async def _interaction_analysis_node(self, state: ParallelNutritionState) -> ParallelNutritionState:
         """Analyze nutrient interactions and cooking process impact using two-agent approach.
 
         Agent 1: Detailed natural language analysis of every nutrient
@@ -363,6 +363,8 @@ Now provide your detailed analysis for EVERY nutrient:""",
         analysis_chain = analysis_prompt | llm | StrOutputParser()
 
         try:
+            import asyncio
+
             # Prepare inputs
             analysis_inputs = {
                 "description": state.get("description", ""),
@@ -374,9 +376,16 @@ Now provide your detailed analysis for EVERY nutrient:""",
                 "estimates_json": estimates_json,
             }
 
-            # Get detailed natural language analysis
+            # Get detailed natural language analysis with timeout
             print("Running detailed nutrient analysis...")
-            detailed_analysis = analysis_chain.invoke(analysis_inputs)
+            try:
+                detailed_analysis = await asyncio.wait_for(
+                    analysis_chain.ainvoke(analysis_inputs),
+                    timeout=60.0  # 60 second timeout
+                )
+            except asyncio.TimeoutError:
+                print("Warning: Detailed nutrient analysis timed out after 60s, using simplified approach")
+                detailed_analysis = "Analysis timed out - using raw estimates"
 
             # Store the detailed analysis
             state["detailed_nutrient_analysis"] = detailed_analysis
@@ -447,14 +456,25 @@ Provide your response as valid JSON only.""",
 
             estimates_chain = estimates_prompt | llm | estimates_parser
 
-            # Get final structured estimates
+            # Get final structured estimates with timeout
             print("Calculating final nutrient values...")
             estimates_inputs = {
                 "estimates_json": estimates_json,
                 "detailed_analysis": detailed_analysis,
             }
 
-            result = estimates_chain.invoke(estimates_inputs)
+            try:
+                result = await asyncio.wait_for(
+                    estimates_chain.ainvoke(estimates_inputs),
+                    timeout=60.0  # 60 second timeout
+                )
+            except asyncio.TimeoutError:
+                print("Warning: Final estimates calculation timed out after 60s, using sum estimates")
+                # Fallback to using the sum estimates
+                result = {
+                    "final_estimates": estimates_sum,
+                    "summary": "Calculation timed out - using raw ingredient sums"
+                }
 
             # Log the final estimates calculation
             logger.log_interaction(
@@ -472,6 +492,13 @@ Provide your response as valid JSON only.""",
             state["interaction_reasoning"] = detailed_analysis[:500] + "..." if len(detailed_analysis) > 500 else detailed_analysis
             state["process_impact_reasoning"] = result["summary"]
 
+        except asyncio.TimeoutError as e:
+            print(f"Timeout during interaction analysis: {e}")
+            # Fall back to sum estimates
+            state["final_estimates"] = state.get("estimates_sum", {})
+            state["interaction_reasoning"] = "Analysis timed out after 120s total"
+            state["process_impact_reasoning"] = "No adjustments made due to timeout"
+            state["detailed_nutrient_analysis"] = "Analysis timed out"
         except Exception as e:
             print(f"Error during interaction analysis: {e}")
             import traceback
@@ -481,7 +508,7 @@ Provide your response as valid JSON only.""",
             state["final_estimates"] = state.get("estimates_sum", {})
             state["interaction_reasoning"] = f"Error occurred: {str(e)}"
             state["process_impact_reasoning"] = "No adjustments made due to error"
-            state["detailed_nutrient_analysis"] = "Error during analysis"
+            state["detailed_nutrient_analysis"] = f"Error during analysis: {str(e)}"
 
         return state
 
