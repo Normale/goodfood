@@ -7,6 +7,7 @@ import DailyGoals from './components/DailyGoals/DailyGoals';
 import TopNutrientGaps from './components/TopNutrientGaps/TopNutrientGaps';
 import NextMealSuggestion from './components/NextMealSuggestion/NextMealSuggestion';
 import NutrientAnalysis from './components/NutrientAnalysis/NutrientAnalysis';
+import AgentStatus from './components/AgentStatus/AgentStatus';
 import { DatabaseIcon, UserIcon, TargetIcon, ActivityIcon, CheckCircleIcon, SparklesIcon } from './components/ui/Icons';
 import './App.css';
 
@@ -108,6 +109,11 @@ function App() {
   const ws = useRef(null);
   const [isConnected, setIsConnected] = useState(false);
 
+  // Agent status tracking
+  const [agents, setAgents] = useState([]);
+  const [isThinking, setIsThinking] = useState(false);
+  const agentTimeouts = useRef({});
+
   // Personalization state
   const [userProfile, setUserProfile] = useState({
     age: '',
@@ -195,6 +201,60 @@ function App() {
         const message = JSON.parse(event.data);
         console.log('Received update:', message);
 
+        // Handle workflow start
+        if (message.type === 'workflow_start') {
+          setIsThinking(true);
+          setAgents([]); // Clear previous agents
+          return;
+        }
+
+        // Handle workflow completion
+        if (message.type === 'consensus') {
+          setIsThinking(false);
+          return;
+        }
+
+        // Handle agent status updates
+        if (message.type === 'agent_status') {
+          const agentId = message.ingredient
+            ? `${message.agent_type}_${message.ingredient}`
+            : message.agent_type;
+
+          console.log('Agent status update:', message.agent_type, message.status, agentId);
+
+          if (message.status === 'running') {
+            // Stop thinking when first agent starts running
+            setIsThinking(false);
+
+            // Add or update agent
+            setAgents(prev => {
+              const existing = prev.find(a => a.id === agentId);
+              if (existing) {
+                return prev.map(a => a.id === agentId ? { ...message, id: agentId } : a);
+              }
+              return [...prev, { ...message, id: agentId }];
+            });
+          } else if (message.status === 'done') {
+            // Update agent to done status
+            setAgents(prev => {
+              const updated = prev.map(a => a.id === agentId ? { ...message, id: agentId } : a);
+              console.log('Updated agents with done status:', updated);
+              return updated;
+            });
+
+            // Schedule removal after 3 seconds (grace period)
+            if (agentTimeouts.current[agentId]) {
+              clearTimeout(agentTimeouts.current[agentId]);
+            }
+            agentTimeouts.current[agentId] = setTimeout(() => {
+              console.log('Removing agent:', agentId);
+              setAgents(prev => prev.filter(a => a.id !== agentId));
+              delete agentTimeouts.current[agentId];
+            }, 3000);
+          }
+          return;
+        }
+
         // Route updates to appropriate components
         switch (message.component) {
           case 'todaysMeals':
@@ -246,6 +306,8 @@ function App() {
       if (ws.current) {
         ws.current.close();
       }
+      // Clear all agent timeouts
+      Object.values(agentTimeouts.current).forEach(timeout => clearTimeout(timeout));
     };
   }, []);
 
@@ -308,7 +370,11 @@ function App() {
         {activeTab === 'tracker' && (
           <div className="content-grid">
             <div className="left-column">
-              <MealInput onSubmit={handleMealSubmit} />
+              <MealInput
+                onSubmit={handleMealSubmit}
+                agents={<AgentStatus agents={agents} isThinking={isThinking} />}
+                isThinking={isThinking}
+              />
               <MealsList meals={meals} onDeleteMeal={handleDeleteMeal} />
             </div>
 

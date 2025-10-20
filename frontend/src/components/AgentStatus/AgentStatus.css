@@ -1,0 +1,11 @@
+/* This CSS file is intentionally minimal as all styles are now inline in the component */
+/* to exactly match the design reference */
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

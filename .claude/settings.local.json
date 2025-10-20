@@ -20,7 +20,9 @@
       "Bash(cp:*)",
       "Bash(.venv/Scripts/python.exe:*)",
       "Bash(cat:*)",
-      "Bash(dir \"C:\\Users\\bartek\\GitHub\\goodfood\\backend\\logs\" /O-D /B)"
+      "Bash(dir \"C:\\Users\\bartek\\GitHub\\goodfood\\backend\\logs\" /O-D /B)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []

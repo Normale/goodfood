@@ -195,6 +195,7 @@ class ParallelNutritionWorkflow:
         subgraphs = {}
         for ing in ingredients:
             ing_name = ing["name"]
+            ing_amount = ing["amount"]
             # Create compiled subgraph for this ingredient
             subgraph = create_ingredient_subgraph(
                 self.ingredient_estimator,
@@ -203,7 +204,7 @@ class ParallelNutritionWorkflow:
             )
 
             # Wrap the subgraph invocation in a lambda that captures the ingredient data
-            def make_runner(ingredient_data):
+            def make_runner(ingredient_data, websocket_ref):
                 def runner(input_state):
                     # Initialize state for this ingredient's subgraph
                     ing_state: IngredientSubgraphState = {
@@ -219,7 +220,7 @@ class ParallelNutritionWorkflow:
                     return result
                 return runner
 
-            subgraphs[ing_name] = make_runner(ing)
+            subgraphs[ing_name] = make_runner(ing, state.get("_websocket"))
 
         # Run all subgraphs in parallel
         parallel = RunnableParallel(**subgraphs)
@@ -264,7 +265,7 @@ class ParallelNutritionWorkflow:
 
         return state
 
-    def _interaction_analysis_node(self, state: ParallelNutritionState) -> ParallelNutritionState:
+    async def _interaction_analysis_node(self, state: ParallelNutritionState) -> ParallelNutritionState:
         """Analyze nutrient interactions and cooking process impact using two-agent approach.
 
         Agent 1: Detailed natural language analysis of every nutrient
@@ -362,6 +363,8 @@ Now provide your detailed analysis for EVERY nutrient:""",
         analysis_chain = analysis_prompt | llm | StrOutputParser()
 
         try:
+            import asyncio
+
             # Prepare inputs
             analysis_inputs = {
                 "description": state.get("description", ""),
@@ -373,9 +376,16 @@ Now provide your detailed analysis for EVERY nutrient:""",
                 "estimates_json": estimates_json,
             }
 
-            # Get detailed natural language analysis
+            # Get detailed natural language analysis with timeout
             print("Running detailed nutrient analysis...")
-            detailed_analysis = analysis_chain.invoke(analysis_inputs)
+            try:
+                detailed_analysis = await asyncio.wait_for(
+                    analysis_chain.ainvoke(analysis_inputs),
+                    timeout=60.0  # 60 second timeout
+                )
+            except asyncio.TimeoutError:
+                print("Warning: Detailed nutrient analysis timed out after 60s, using simplified approach")
+                detailed_analysis = "Analysis timed out - using raw estimates"
 
             # Store the detailed analysis
             state["detailed_nutrient_analysis"] = detailed_analysis
@@ -446,14 +456,25 @@ Provide your response as valid JSON only.""",
 
             estimates_chain = estimates_prompt | llm | estimates_parser
 
-            # Get final structured estimates
+            # Get final structured estimates with timeout
             print("Calculating final nutrient values...")
             estimates_inputs = {
                 "estimates_json": estimates_json,
                 "detailed_analysis": detailed_analysis,
             }
 
-            result = estimates_chain.invoke(estimates_inputs)
+            try:
+                result = await asyncio.wait_for(
+                    estimates_chain.ainvoke(estimates_inputs),
+                    timeout=60.0  # 60 second timeout
+                )
+            except asyncio.TimeoutError:
+                print("Warning: Final estimates calculation timed out after 60s, using sum estimates")
+                # Fallback to using the sum estimates
+                result = {
+                    "final_estimates": estimates_sum,
+                    "summary": "Calculation timed out - using raw ingredient sums"
+                }
 
             # Log the final estimates calculation
             logger.log_interaction(
@@ -471,6 +492,13 @@ Provide your response as valid JSON only.""",
             state["interaction_reasoning"] = detailed_analysis[:500] + "..." if len(detailed_analysis) > 500 else detailed_analysis
             state["process_impact_reasoning"] = result["summary"]
 
+        except asyncio.TimeoutError as e:
+            print(f"Timeout during interaction analysis: {e}")
+            # Fall back to sum estimates
+            state["final_estimates"] = state.get("estimates_sum", {})
+            state["interaction_reasoning"] = "Analysis timed out after 120s total"
+            state["process_impact_reasoning"] = "No adjustments made due to timeout"
+            state["detailed_nutrient_analysis"] = "Analysis timed out"
         except Exception as e:
             print(f"Error during interaction analysis: {e}")
             import traceback
@@ -480,7 +508,7 @@ Provide your response as valid JSON only.""",
             state["final_estimates"] = state.get("estimates_sum", {})
             state["interaction_reasoning"] = f"Error occurred: {str(e)}"
             state["process_impact_reasoning"] = "No adjustments made due to error"
-            state["detailed_nutrient_analysis"] = "Error during analysis"
+            state["detailed_nutrient_analysis"] = f"Error during analysis: {str(e)}"
 
         return state
 
@@ -504,6 +532,7 @@ Provide your response as valid JSON only.""",
         state: ParallelNutritionState = {
             "description": description,
             "max_rounds": max_rounds_per_ingredient,
+            "_websocket": websocket,  # Pass websocket through state
         }
 
         # Notify start
@@ -512,6 +541,14 @@ Provide your response as valid JSON only.""",
                 "type": "workflow_start",
                 "description": description,
                 "stage": "preprocessing",
+            })
+
+            # Show preprocessing agent as running immediately
+            await websocket.send_json({
+                "type": "agent_status",
+                "agent_type": "preprocessing",
+                "status": "running",
+                "message": "Analyzing ingredients...",
             })
 
         # Track current stage for iteration simulation
@@ -529,7 +566,17 @@ Provide your response as valid JSON only.""",
                     cooking_process = node_state.get("cooking_process", {})
 
                     if websocket:
-                        # Send iteration event (similar to original workflow)
+                        import asyncio
+
+                        # Mark preprocessing as done
+                        await websocket.send_json({
+                            "type": "agent_status",
+                            "agent_type": "preprocessing",
+                            "status": "done",
+                            "message": f"Found {len(ingredients)} ingredients",
+                        })
+
+                        # Send iteration event
                         await websocket.send_json({
                             "type": "iteration",
                             "iteration": current_stage,
@@ -543,11 +590,70 @@ Provide your response as valid JSON only.""",
                             "message": f"Analyzing ingredients ({len(ingredients)} found)...",
                         })
 
+                        # Now predictively show what's coming next: estimators for all ingredients
+                        for ing in ingredients:
+                            ing_name = ing["name"]
+                            ing_amount = ing["amount"]
+
+                            # Show estimator status as "running"
+                            await websocket.send_json({
+                                "type": "agent_status",
+                                "agent_type": "estimator",
+                                "status": "running",
+                                "message": f"Estimating ({ing_name}: {ing_amount})",
+                                "ingredient": ing_name,
+                            })
+
                 # After coordinator (parallel execution)
                 elif node_name == "coordinator":
                     ingredient_results = node_state.get("ingredient_results", {})
+                    ingredients = state.get("ingredients", [])
 
                     if websocket:
+                        import asyncio
+
+                        # Mark all estimators as done
+                        for ing in ingredients:
+                            ing_name = ing["name"]
+                            ing_amount = ing["amount"]
+
+                            # Mark estimator as done
+                            await websocket.send_json({
+                                "type": "agent_status",
+                                "agent_type": "estimator",
+                                "status": "done",
+                                "message": f"Estimated ({ing_name}: {ing_amount})",
+                                "ingredient": ing_name,
+                            })
+
+                        # Now show all validators as running
+                        for ing in ingredients:
+                            ing_name = ing["name"]
+                            ing_amount = ing["amount"]
+
+                            # Show validator as running
+                            await websocket.send_json({
+                                "type": "agent_status",
+                                "agent_type": "validator",
+                                "status": "running",
+                                "message": f"Validating ({ing_name}: {ing_amount})",
+                                "ingredient": ing_name,
+                            })
+
+                        # Mark all validators as done
+                        for ing in ingredients:
+                            ing_name = ing["name"]
+                            ing_amount = ing["amount"]
+
+                            # Mark validator as done
+                            await websocket.send_json({
+                                "type": "agent_status",
+                                "agent_type": "validator",
+                                "status": "done",
+                                "message": f"Validated ({ing_name}: {ing_amount})",
+                                "ingredient": ing_name,
+                            })
+
                         # Send iteration event
                         await websocket.send_json({
                             "type": "iteration",
@@ -560,6 +666,14 @@ Provide your response as valid JSON only.""",
                             "type": "status",
                             "status": "estimating",
                             "message": f"Estimating nutrients in parallel ({len(ingredient_results)} ingredients)...",
+                        })
+
+                        # Predictively show next stage: detailed analyzer
+                        await websocket.send_json({
+                            "type": "agent_status",
+                            "agent_type": "detailed_analyzer",
+                            "status": "running",
+                            "message": "Assessing the potential interactions",
                         })
 
                 # After merge
@@ -593,11 +707,37 @@ Provide your response as valid JSON only.""",
                             "full_count": len(estimates_sum),
                         })
 
+                        # No agent status updates here - detailed_analyzer is already running from coordinator
+
                 # After interaction analysis
                 elif node_name == "interaction_analysis":
                     final_estimates = node_state.get("final_estimates", {})
 
                     if websocket:
+                        # Mark detailed analyzer as done
+                        await websocket.send_json({
+                            "type": "agent_status",
+                            "agent_type": "detailed_analyzer",
+                            "status": "done",
+                            "message": "Interactions assessed",
+                        })
+
+                        # Show final estimates running
+                        await websocket.send_json({
+                            "type": "agent_status",
+                            "agent_type": "final_estimates",
+                            "status": "running",
+                            "message": "Calculating final nutrient values",
+                        })
+
+                        # Mark final estimates as done
+                        await websocket.send_json({
+                            "type": "agent_status",
+                            "agent_type": "final_estimates",
+                            "status": "done",
+                            "message": "Done",
+                        })
+
                         # Send iteration event
                         await websocket.send_json({
                             "type": "iteration",
