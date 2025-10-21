@@ -9,7 +9,6 @@ Comprehensive nutrition tracking with AI-powered estimation. Just describe what 
 - **Iterative Refinement**: Estimator and verifier agents collaborate for accuracy
 - **Real-Time WebSocket**: Live progress updates during estimation
 - **React Frontend**: Modern UI with nutrition visualization
-- **Database Persistence**: PostgreSQL with vector embeddings for similarity search
 
 ## Quick Start
 
@@ -47,7 +46,7 @@ Frontend runs on `http://localhost:5173`
 docker-compose up
 ```
 
-Starts PostgreSQL, backend, and frontend.
+Starts backend and frontend.
 
 ## Architecture
 
@@ -60,7 +59,6 @@ goodfood/
 │   │   ├── agents/           # AI agents (estimator, verifier)
 │   │   ├── workflows/        # Orchestration logic
 │   │   ├── config/           # Settings
-│   │   ├── database/         # PostgreSQL models
 │   │   ├── models/           # Data models
 │   │   └── integrations/     # External APIs
 │   └── README.md
@@ -68,7 +66,6 @@ goodfood/
 │   └── src/
 │       ├── components/       # UI components
 │       └── App.jsx
-├── alembic/                   # Database migrations
 └── docs/
     ├── ARCHITECTURE.md       # Detailed architecture
     └── QUICKSTART.md         # Getting started
@@ -114,8 +111,8 @@ Progress streamed to frontend via WebSocket:
 - Verification results
 - Final consensus
 
-### 6. Storage & Display
-Meal saved with complete nutritional profile and displayed in UI.
+### 6. Display
+Meal displayed in UI with complete nutritional profile.
 
 ## Nutrients Tracked
 
@@ -173,7 +170,6 @@ Beta-carotene, Lycopene, Polyphenols, Quercetin, and more
 ANTHROPIC_API_KEY=sk-ant-your-key-here
 
 # Optional (with defaults)
-DATABASE_URL=postgresql://goodfood_user:goodfood_pass@localhost:5432/goodfood
 OPENFOODFACTS_MCP_URL=http://localhost:3000
 MAX_ITERATIONS=5
 APPROVAL_THRESHOLD=80
@@ -183,39 +179,11 @@ CRITIC_MODEL=claude-3-5-haiku-latest
 LOG_LEVEL=INFO
 ```
 
-## Database
-
-PostgreSQL with pgvector extension for similarity search:
-
-```sql
-CREATE TABLE nutrition_history (
-    id UUID PRIMARY KEY,
-    timestamp TIMESTAMPTZ,
-    name VARCHAR(255),
-    description TEXT,
-    meal_type VARCHAR(50),
-
-    -- Vector embeddings
-    description_embedding vector(1536),
-    nutrient_profile_embedding vector(1536),
-
-    -- 70+ nutrient columns
-    protein FLOAT,
-    carbohydrates FLOAT,
-    total_fats FLOAT,
-    vitamin_c FLOAT,
-    iron FLOAT,
-    ...
-);
-```
-
 ## Technologies
 
 **Backend:**
 - FastAPI - Web framework
 - Anthropic Claude - AI for nutrition estimation
-- SQLAlchemy - ORM
-- Alembic - Migrations
 - WebSockets - Real-time communication
 
 **Frontend:**
@@ -225,7 +193,6 @@ CREATE TABLE nutrition_history (
 
 **Infrastructure:**
 - Docker - Containerization
-- PostgreSQL + pgvector - Database
 - uvicorn - ASGI server
 
 ## Development
@@ -237,18 +204,6 @@ pytest backend/tests/
 
 # Frontend (TODO)
 cd frontend && npm test
-```
-
-### Database Migrations
-```bash
-# Create migration
-alembic revision --autogenerate -m "description"
-
-# Apply migrations
-alembic upgrade head
-
-# Rollback
-alembic downgrade -1
 ```
 
 ### Project Structure
