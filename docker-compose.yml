@@ -1,27 +1,13 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: ankane/pgvector
-    environment:
-      POSTGRES_USER: goodfood_user
-      POSTGRES_PASSWORD: goodfood_pass
-      POSTGRES_DB: goodfood
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
-    depends_on:
-      - postgres
     environment:
-      DATABASE_URL: postgresql://goodfood_user:goodfood_pass@postgres:5432/goodfood
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
     command: uv run python main.py
 
@@ -31,6 +17,3 @@ services:
       - "5173:5173"
     depends_on:
       - backend
-
-volumes:
-  postgres_data:
