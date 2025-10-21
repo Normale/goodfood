@@ -151,12 +151,29 @@ Provide your response as valid JSON only.""",
         estimates_json = json.dumps(estimates, indent=2)
 
         try:
-            # Invoke the chain
+            # Format prompt for logging
+            prompt_text = self.prompt.format(
+                ingredient_name=ingredient_name,
+                amount=amount,
+                estimates_json=estimates_json
+            )
+
+            # Invoke the chain asynchronously
             result = await self.chain.ainvoke({
                 "ingredient_name": ingredient_name,
                 "amount": amount,
                 "estimates_json": estimates_json,
             })
+
+            # Log the interaction with ingredient name
+            logger = get_logger()
+            logger.log_interaction(
+                agent_name="validator",
+                prompt=prompt_text,
+                response=json.dumps(result, indent=2),
+                ingredient_name=ingredient_name,
+                metadata={"amount": amount, "approved": result.get("approved")}
+            )
 
             return result
 

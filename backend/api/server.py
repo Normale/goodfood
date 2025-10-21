@@ -1,7 +1,7 @@
 """Main FastAPI server with WebSocket for nutrition estimation."""
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -16,7 +16,6 @@ from integrations.database import (
     log_food,
 )
 from workflows.gap_analysis_workflow import GapAnalysisWorkflow
-from workflows.nutrition_langgraph import NutritionEstimationWorkflow
 from workflows.parallel_nutrition_workflow import ParallelNutritionWorkflow
 
 app = FastAPI(title="GoodFood Nutrition API")
@@ -68,9 +67,9 @@ async def broadcast_update(component: str, data: dict):
 
 async def get_todays_meals() -> List[dict]:
     """Get today's meals from database."""
-    # Get start and end of today
-    now = datetime.now()
-    start_of_day = datetime(now.year, now.month, now.day, 0, 0, 0)
+    # Get start and end of today (UTC timezone-aware)
+    now = datetime.now(timezone.utc)
+    start_of_day = datetime(now.year, now.month, now.day, 0, 0, 0, tzinfo=timezone.utc)
     end_of_day = start_of_day + timedelta(days=1)
 
     # Fetch today's food logs from database
@@ -199,33 +198,36 @@ async def websocket_endpoint(websocket: WebSocket):
             # Send meal suggestions (first one for NextMealSuggestion component)
             meal_suggestions = gap_analysis_result.get("meal_suggestions", [])
             if meal_suggestions:
-                await websocket.send_json({
-                    "component": "recommendedMeal",
-                    "data": meal_suggestions[0]
-                })
+                await websocket.send_json(
+                    {"component": "recommendedMeal", "data": meal_suggestions[0]}
+                )
             else:
-                await websocket.send_json({
-                    "component": "recommendedMeal",
-                    "data": {
-                        "meal": "Add your first meal to get personalized suggestions",
-                        "reasoning": "Track meals to receive nutrition guidance"
+                await websocket.send_json(
+                    {
+                        "component": "recommendedMeal",
+                        "data": {
+                            "meal": "Add your first meal to get personalized suggestions",
+                            "reasoning": "Track meals to receive nutrition guidance",
+                        },
                     }
-                })
+                )
         else:
             # No meals yet
             await websocket.send_json({"component": "nutrientGaps", "data": []})
-            await websocket.send_json({
-                "component": "recommendedMeal",
-                "data": {
-                    "meal": "Start by adding your first meal",
-                    "reasoning": "Track meals to get personalized nutrition insights"
+            await websocket.send_json(
+                {
+                    "component": "recommendedMeal",
+                    "data": {
+                        "meal": "Start by adding your first meal",
+                        "reasoning": "Track meals to get personalized nutrition insights",
+                    },
                 }
-            })
+            )
 
         # Listen for messages from client
         while True:
             message = await websocket.receive_json()
-
+            print(f"Received message: {message}")
             # Handle meal input with nutrition estimation
             if message.get("action") == "add_meal":
                 meal_text = message.get("text", "")
@@ -277,10 +279,13 @@ async def websocket_endpoint(websocket: WebSocket):
                 if meal_suggestions:
                     await broadcast_update("recommendedMeal", meal_suggestions[0])
                 else:
-                    await broadcast_update("recommendedMeal", {
-                        "meal": "Balanced meal with protein and vegetables",
-                        "reasoning": "Helps meet daily nutritional goals"
-                    })
+                    await broadcast_update(
+                        "recommendedMeal",
+                        {
+                            "meal": "Balanced meal with protein and vegetables",
+                            "reasoning": "Helps meet daily nutritional goals",
+                        },
+                    )
 
                 print(f"Broadcasted updates to {len(active_connections)} clients")
 

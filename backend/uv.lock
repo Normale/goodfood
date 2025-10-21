@@ -385,6 +385,7 @@ dependencies = [
     { name = "tortoise-orm" },
     { name = "typing-extensions" },
     { name = "uvicorn", extra = ["standard"] },
+    { name = "websockets" },
 ]
 
 [package.optional-dependencies]
@@ -421,6 +422,7 @@ requires-dist = [
     { name = "tortoise-orm", specifier = ">=0.20.0" },
     { name = "typing-extensions", specifier = ">=4.0.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.37.0" },
+    { name = "websockets", specifier = ">=15.0.1" },
 ]
 provides-extras = ["dev"]
 

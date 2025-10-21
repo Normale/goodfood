@@ -78,20 +78,28 @@ def create_ingredient_subgraph(
     """
     graph = StateGraph(IngredientSubgraphState)
 
-    def estimator_node(state: IngredientSubgraphState) -> IngredientSubgraphState:
+    async def estimator_node(state: IngredientSubgraphState) -> IngredientSubgraphState:
         """Run ingredient estimator."""
         round_num = state.get("round", 0)
 
-        # If max rounds reached, just return current state
-        if round_num >= max_rounds:
-            state["approved"] = True  # Force approval to exit loop
-            return state
+        # Get feedback from previous validation round (if any)
+        feedback = state.get("feedback")
 
-        # Run estimation synchronously
-        result = estimator.estimate_sync(
+        # Build notes including validator feedback if available
+        base_notes = state.get("notes") or ""
+
+        # Only add feedback if this is a retry (round > 0) and we have feedback
+        if round_num > 0 and feedback:
+            # Format feedback for the estimator - keep it simple to avoid issues
+            notes = f"{base_notes}\n\nIMPORTANT - Validator feedback from previous attempt: {feedback}\nPlease adjust your estimates accordingly." if base_notes else f"IMPORTANT - Validator feedback: {feedback}\nPlease adjust your estimates accordingly."
+        else:
+            notes = base_notes
+
+        # Run estimation asynchronously with feedback
+        result = await estimator.estimate(
             ingredient_name=state["ingredient_name"],
             amount=state["amount"],
-            notes=state.get("notes")
+            notes=notes if notes else None
         )
 
         state["estimates"] = result["estimates"]
@@ -101,12 +109,12 @@ def create_ingredient_subgraph(
 
         return state
 
-    def validator_node(state: IngredientSubgraphState) -> IngredientSubgraphState:
+    async def validator_node(state: IngredientSubgraphState) -> IngredientSubgraphState:
         """Run ingredient validator."""
         estimates = state.get("estimates", {})
 
-        # Run validation synchronously
-        result = validator.validate_sync(
+        # Run validation asynchronously
+        result = await validator.validate(
             ingredient_name=state["ingredient_name"],
             amount=state["amount"],
             estimates=estimates
@@ -127,9 +135,27 @@ def create_ingredient_subgraph(
 
     # Add edges: estimator → validator → (estimator or END)
     graph.add_edge("estimator", "validator")
+
+    # Conditional routing from validator - check BOTH approval AND max rounds
+    def should_continue(state: IngredientSubgraphState) -> str:
+        """Determine if we should continue the loop or end.
+
+        Exit conditions:
+        1. Validator approved the estimates
+        2. Max rounds reached
+        """
+        approved = state.get("approved", False)
+        round_num = state.get("round", 0)
+
+        # If approved OR max rounds reached, end the loop
+        if approved or round_num >= max_rounds:
+            return "END"
+
+        return "estimator"
+
     graph.add_conditional_edges(
         "validator",
-        lambda s: "END" if s.get("approved", False) else "estimator",
+        should_continue,
         {
             "estimator": "estimator",
             "END": END,
@@ -179,7 +205,7 @@ class ParallelNutritionWorkflow:
 
         return workflow.compile()
 
-    def _coordinator_node(self, state: ParallelNutritionState) -> ParallelNutritionState:
+    async def _coordinator_node(self, state: ParallelNutritionState) -> ParallelNutritionState:
         """Coordinator node that spawns parallel ingredient subgraphs.
 
         This is similar to the runners_node in the parallel example.
@@ -205,7 +231,7 @@ class ParallelNutritionWorkflow:
 
             # Wrap the subgraph invocation in a lambda that captures the ingredient data
             def make_runner(ingredient_data, websocket_ref):
-                def runner(input_state):
+                async def runner(input_state):
                     # Initialize state for this ingredient's subgraph
                     ing_state: IngredientSubgraphState = {
                         "ingredient_name": ingredient_data["name"],
@@ -215,23 +241,23 @@ class ParallelNutritionWorkflow:
                         "max_rounds": self.max_rounds,
                         "approved": False,
                     }
-                    # Run the subgraph
-                    result = subgraph.invoke(ing_state)
+                    # Run the subgraph asynchronously
+                    result = await subgraph.ainvoke(ing_state)
                     return result
                 return runner
 
             subgraphs[ing_name] = make_runner(ing, state.get("_websocket"))
 
-        # Run all subgraphs in parallel
+        # Run all subgraphs in parallel asynchronously
         parallel = RunnableParallel(**subgraphs)
-        results = parallel.invoke({})
+        results = await parallel.ainvoke({})
 
         # Store results in state
         state["ingredient_results"] = results
 
         return state
 
-    def _merge_node(self, state: ParallelNutritionState) -> ParallelNutritionState:
+    async def _merge_node(self, state: ParallelNutritionState) -> ParallelNutritionState:
         """Merge node that sums up nutrients from all ingredients."""
         ingredient_results = state.get("ingredient_results", {})
 

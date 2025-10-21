@@ -24,6 +24,7 @@ dependencies = [
     "typing-extensions>=4.0.0",
     "fastapi>=0.118.2",
     "uvicorn[standard]>=0.37.0",
+    "websockets>=15.0.1",
 ]
 
 [project.optional-dependencies]

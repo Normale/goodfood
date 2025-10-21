@@ -23,7 +23,9 @@
       "Bash(dir \"C:\\Users\\bartek\\GitHub\\goodfood\\backend\\logs\" /O-D /B)",
       "Bash(dir:*)",
       "Bash(findstr:*)",
-      "Bash(del \"C:\\Users\\bartek\\GitHub\\goodfood\\backend\\workflows\\nutrition_langgraph.py\")"
+      "Bash(del \"C:\\Users\\bartek\\GitHub\\goodfood\\backend\\workflows\\nutrition_langgraph.py\")",
+      "Bash(curl:*)",
+      "Bash(del \"C:\\Users\\bartek\\GitHub\\goodfood\\backend\\migrations\\002_add_timezone_support.sql\")"
     ],
     "deny": [],
     "ask": []

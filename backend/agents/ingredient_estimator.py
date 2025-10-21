@@ -169,12 +169,29 @@ Provide your response as valid JSON only.""",
             Dict with nutrient estimates
         """
         try:
-            # Invoke the chain
+            # Format prompt for logging
+            prompt_text = self.prompt.format(
+                ingredient_name=ingredient_name,
+                amount=amount,
+                notes=notes or "None"
+            )
+
+            # Invoke the chain asynchronously
             result = await self.chain.ainvoke({
                 "ingredient_name": ingredient_name,
                 "amount": amount,
                 "notes": notes or "None",
             })
+
+            # Log the interaction with ingredient name
+            logger = get_logger()
+            logger.log_interaction(
+                agent_name="estimator",
+                prompt=prompt_text,
+                response=json.dumps(result, indent=2),
+                ingredient_name=ingredient_name,
+                metadata={"amount": amount, "notes": notes}
+            )
 
             return result
 

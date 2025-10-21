@@ -13,7 +13,7 @@ CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     username TEXT UNIQUE NOT NULL,
     email TEXT UNIQUE,
-    created_at TIMESTAMP DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT (NOW() AT TIME ZONE 'UTC')
 );
 
 -- ============================================================================
@@ -98,7 +98,7 @@ CREATE TABLE ingredients (
     allicin NUMERIC(10, 2),
     curcumin NUMERIC(10, 2),
 
-    updated_at TIMESTAMP DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT (NOW() AT TIME ZONE 'UTC')
 );
 
 -- ============================================================================
@@ -190,7 +190,7 @@ CREATE TABLE user_foods (
     vector_nutrition VECTOR(60),  -- Normalized nutrition vector for similarity search
     vector_description VECTOR(384),  -- Description embedding (placeholder for future)
 
-    updated_at TIMESTAMP DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT (NOW() AT TIME ZONE 'UTC')
 );
 
 -- ============================================================================
@@ -200,7 +200,7 @@ CREATE TABLE food_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     user_food_id UUID REFERENCES user_foods(id),
-    eaten_at TIMESTAMP DEFAULT NOW(),
+    eaten_at TIMESTAMPTZ DEFAULT (NOW() AT TIME ZONE 'UTC'),
     amount_grams NUMERIC(10, 2),
     meal_type TEXT,
     extra JSONB
@@ -287,14 +287,15 @@ BEGIN
     END IF;
 
     -- Create normalized vector (divide each element by calories)
+    -- Format: [val1,val2,val3,...] for pgvector
     NEW.vector_nutrition := (
-        SELECT array_to_string(
+        SELECT '[' || array_to_string(
             ARRAY(
                 SELECT (val / norm_factor)::TEXT
                 FROM unnest(nutrient_values) AS val
             ),
             ','
-        )
+        ) || ']'
     )::VECTOR(60);
 
     RETURN NEW;
@@ -340,6 +341,6 @@ VALUES (
     '00000000-0000-0000-0000-000000000000',
     'default_user',
     'default@goodfood.local',
-    NOW()
+    NOW() AT TIME ZONE 'UTC'
 )
 ON CONFLICT (username) DO NOTHING;

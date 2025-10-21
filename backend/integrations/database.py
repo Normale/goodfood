@@ -17,14 +17,77 @@ logger = logging.getLogger(__name__)
 DEFAULT_USER_ID = UUID("00000000-0000-0000-0000-000000000000")
 
 
+def convert_nutrient_keys_to_db_format(nutrients: dict) -> dict:
+    """Convert nutrient keys from kebab-case to snake_case for database.
+
+    Args:
+        nutrients: Dictionary with kebab-case keys (e.g., "vitamin-c", "total-fats", "thiamine")
+
+    Returns:
+        Dictionary with snake_case keys matching database schema (e.g., "vitamin_c", "total_fats", "vitamin_b1_thiamine")
+    """
+    # Mapping from NUTRIENTS config keys to database field names
+    KEY_MAPPING = {
+        # B vitamins - need to add vitamin_bX_ prefix
+        "thiamine": "vitamin_b1_thiamine",
+        "riboflavin": "vitamin_b2_riboflavin",
+        "niacin": "vitamin_b3_niacin",
+        "pantothenic-acid": "vitamin_b5_pantothenic_acid",
+        "pyridoxine": "vitamin_b6_pyridoxine",
+        "biotin": "vitamin_b7_biotin",
+        "folate": "vitamin_b9_folate",
+        "vitamin-b12": "vitamin_b12",
+
+        # Other vitamins - simple conversion
+        "vitamin-a": "vitamin_a",
+        "vitamin-c": "vitamin_c",
+        "vitamin-d": "vitamin_d",
+        "vitamin-e": "vitamin_e",
+        "vitamin-k": "vitamin_k",
+
+        # Fiber - single field in config, split in DB (for now just use soluble_fiber)
+        "fiber": "soluble_fiber",
+
+        # Beneficial compounds
+        "coenzyme-q10": "coq10",
+        "alpha-lipoic-acid": "alpha_lipoic_acid",
+        "beta-glucan": "beta_glucan",
+        "resistant-starch": "resistant_starch",
+
+        # Fats
+        "total-fats": "total_fats",
+        "alpha-linolenic-acid": "alpha_linolenic_acid",
+        "linoleic-acid": "linoleic_acid",
+        "epa-dha": "epa_dha",
+
+        # Phytonutrients
+        "beta-carotene": "beta_carotene",
+        "polyphenols": "total_polyphenols",
+    }
+
+    converted = {}
+    for key, value in nutrients.items():
+        # Check if there's a specific mapping
+        if key in KEY_MAPPING:
+            db_key = KEY_MAPPING[key]
+        else:
+            # Default: convert kebab-case to snake_case
+            db_key = key.replace("-", "_")
+
+        converted[db_key] = value
+
+    return converted
+
+
 async def init_database() -> None:
     """Initialize database connection and run migrations."""
     logger.info("Initializing database connection...")
 
-    # Initialize Tortoise ORM
+    # Initialize Tortoise ORM with timezone support
     await Tortoise.init(
         db_url=settings.database_url,
         modules={"models": ["models.database"]},
+        timezone="UTC",  # Use UTC to avoid timezone issues
     )
 
     # Run migrations
@@ -40,33 +103,32 @@ async def run_migrations() -> None:
     # Get database connection
     conn = Tortoise.get_connection("default")
 
-    # Check if tables exist
-    tables_exist = await conn.execute_query(
+    # Check if tables exist using execute_query_dict
+    result = await conn.execute_query_dict(
         """
         SELECT EXISTS (
             SELECT FROM information_schema.tables
             WHERE table_name = 'users'
-        );
+        ) as table_exists;
         """
     )
 
-    if not tables_exist[0][0]:
+    tables_exist = result[0]['table_exists']
+
+    if not tables_exist:
         logger.info("Tables do not exist, running initial migration...")
 
         # Read and execute migration file
         migration_file = Path(__file__).parent.parent / "migrations" / "001_initial_schema.sql"
         if migration_file.exists():
             migration_sql = migration_file.read_text()
-            # Split by semicolon and execute each statement
-            statements = [s.strip() for s in migration_sql.split(";") if s.strip()]
-            for statement in statements:
-                try:
-                    await conn.execute_script(statement)
-                except Exception as e:
-                    logger.warning(f"Migration statement warning: {e}")
-                    # Continue with other statements
-
-            logger.info("Initial migration completed")
+            # Execute the entire migration script at once to handle functions properly
+            try:
+                await conn.execute_script(migration_sql)
+                logger.info("Initial migration completed")
+            except Exception as e:
+                logger.error(f"Migration failed: {e}")
+                raise
         else:
             logger.error(f"Migration file not found: {migration_file}")
     else:
@@ -109,7 +171,7 @@ async def create_user_food(
     Args:
         name: Food name
         description: Food description
-        nutrients: Dictionary of nutrient values
+        nutrients: Dictionary of nutrient values (can be kebab-case or snake_case)
         source: Source of the food data (e.g., "openfoodfacts")
         source_key: Key/ID in the source system
         user_id: User ID (defaults to default user)
@@ -125,12 +187,13 @@ async def create_user_food(
         "source_key": source_key,
     }
 
-    # Add nutrients if provided
+    # Add nutrients if provided (convert keys to database format)
     if nutrients:
-        food_data.update(nutrients)
+        converted_nutrients = convert_nutrient_keys_to_db_format(nutrients)
+        food_data.update(converted_nutrients)
 
     food = await UserFood.create(**food_data)
-    logger.debug(f"Created user food: {name} (ID: {food.id})")
+    logger.info(f"Created user food: {name} (ID: {food.id})")
 
     return food
 

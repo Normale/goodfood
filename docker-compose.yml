@@ -25,7 +25,7 @@ services:
       - "8000:8000"
     environment:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-      DATABASE_URL: ${DATABASE_URL:-postgresql://goodfood:goodfood_dev@postgres:5432/goodfood}
+      DATABASE_URL: ${DATABASE_URL:-postgres://goodfood:goodfood_dev@postgres:5432/goodfood}
     command: uv run python main.py
     depends_on:
       postgres:
