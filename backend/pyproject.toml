@@ -12,6 +12,10 @@ dependencies = [
     # Data & Validation
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
+    # Database
+    "tortoise-orm>=0.20.0",
+    "asyncpg>=0.29.0",
+    "aerich>=0.7.2",
     # Utilities
     "rich>=14.1.0",
     "python-dotenv>=1.0.0",

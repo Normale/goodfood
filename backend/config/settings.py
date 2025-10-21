@@ -53,6 +53,12 @@ class Settings(BaseSettings):
         description="Logging level (DEBUG, INFO, WARNING, ERROR)",
     )
 
+    # Database
+    database_url: str = Field(
+        default="postgresql://goodfood:goodfood_dev@localhost:5432/goodfood",
+        description="PostgreSQL database connection URL",
+    )
+
 
 # Global settings instance
 settings = Settings()
