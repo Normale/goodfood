@@ -22,7 +22,8 @@
       "Bash(cat:*)",
       "Bash(dir \"C:\\Users\\bartek\\GitHub\\goodfood\\backend\\logs\" /O-D /B)",
       "Bash(dir:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(del \"C:\\Users\\bartek\\GitHub\\goodfood\\backend\\workflows\\nutrition_langgraph.py\")"
     ],
     "deny": [],
     "ask": []

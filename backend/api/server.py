@@ -7,7 +7,6 @@ from typing import Dict, List
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-from workflows.nutrition_langgraph import NutritionEstimationWorkflow
 from workflows.parallel_nutrition_workflow import ParallelNutritionWorkflow
 from workflows.gap_analysis_workflow import GapAnalysisWorkflow
 
