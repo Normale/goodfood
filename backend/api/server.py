@@ -14,6 +14,7 @@ from integrations.database import (
     get_food_logs_by_date_range,
     init_database,
     log_food,
+    save_ingredients_to_cache,
 )
 from workflows.gap_analysis_workflow import GapAnalysisWorkflow
 from workflows.parallel_nutrition_workflow import ParallelNutritionWorkflow
@@ -248,6 +249,13 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 # Add all detailed nutrients from estimates
                 nutrients.update(estimates)
+
+                # Save individual ingredients to cache
+                ingredient_results = result.get("ingredient_results", {})
+                if ingredient_results:
+                    # Convert ingredient_results dict to list format
+                    ingredients_list = list(ingredient_results.values())
+                    await save_ingredients_to_cache(ingredients_list)
 
                 # Create user food in database
                 user_food = await create_user_food(

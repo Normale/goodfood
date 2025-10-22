@@ -274,3 +274,60 @@ async def search_user_foods_by_name(
     ).limit(limit)
 
     return foods
+
+
+async def save_ingredients_to_cache(
+    ingredients: list[dict],
+) -> list[Ingredient]:
+    """Save ingredient estimates to the ingredients cache table.
+
+    This function saves individual ingredient nutritional data to the ingredients
+    table for caching and future reference. It checks if each ingredient already
+    exists by name before inserting.
+
+    Args:
+        ingredients: List of ingredient dictionaries, each containing:
+            - ingredient_name: Name of the ingredient
+            - estimates: Dictionary of nutrient values (can be kebab-case or snake_case)
+            - reasoning: Optional AI reasoning about the ingredient
+            - amount: Optional amount/quantity information
+
+    Returns:
+        List of created Ingredient instances (only new ingredients, not existing ones)
+    """
+    created_ingredients = []
+
+    for ing_data in ingredients:
+        ingredient_name = ing_data.get("ingredient_name", "")
+        if not ingredient_name:
+            logger.warning(f"Skipping ingredient with no name: {ing_data}")
+            continue
+
+        # Check if ingredient already exists in cache
+        existing = await Ingredient.filter(name=ingredient_name).exists()
+
+        if existing:
+            logger.debug(f"Ingredient '{ingredient_name}' already exists in cache, skipping")
+            continue
+
+        # Prepare ingredient data
+        ingredient_data = {
+            "name": ingredient_name,
+            "reasoning": ing_data.get("reasoning"),
+        }
+
+        # Add nutrient estimates if provided
+        estimates = ing_data.get("estimates", {})
+        if estimates:
+            converted_estimates = convert_nutrient_keys_to_db_format(estimates)
+            ingredient_data.update(converted_estimates)
+
+        # Create the ingredient
+        try:
+            ingredient = await Ingredient.create(**ingredient_data)
+            created_ingredients.append(ingredient)
+            logger.info(f"Cached ingredient: {ingredient_name} (ID: {ingredient.id})")
+        except Exception as e:
+            logger.error(f"Failed to cache ingredient '{ingredient_name}': {e}")
+
+    return created_ingredients
